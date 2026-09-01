@@ -19,6 +19,11 @@ const (
 	PanelMatchStatistics   = "Match Statistics"
 	PanelUpdates           = "Updates"
 	PanelLeaguePreferences = "League Preferences"
+
+	// American football panels
+	PanelSituation     = "Game Situation"
+	PanelPlayerLeaders = "Player Leaders"
+	PanelMomentum      = "Win Probability"
 )
 
 // Empty state messages
@@ -50,9 +55,19 @@ const (
 	HelpStatisticsDialog   = "↑/↓: navigate  Esc: close"
 	HelpTopScorersDialog   = "↑/↓: navigate  Esc: close"
 
+	// American football dialogs
+	HelpSituationDialog = "Esc: close"
+	HelpLeadersDialog   = "↑/↓: navigate  Esc: close"
+	HelpMomentumDialog  = "Esc: close"
+	HelpRankingsDialog  = "↑/↓: navigate  Tab: switch poll  Esc: close"
+
 	// Edge case user-facing hints
 	ErrorNoStatistics = "No statistics available yet"
 	ErrorNoStandings  = "No standings available"
+	ErrorNoSituation  = "No live situation data available"
+	ErrorNoLeaders    = "No player statistics available yet"
+	ErrorNoMomentum   = "No win probability data available"
+	ErrorNoRankings   = "No rankings available"
 )
 
 // Status text

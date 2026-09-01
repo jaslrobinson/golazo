@@ -18,6 +18,12 @@ const (
 	FormationsDialogID = "formations"
 	StatisticsDialogID = "statistics"
 	TopScorersDialogID = "top_scorers"
+
+	// American football dialogs
+	SituationDialogID = "situation"
+	LeadersDialogID   = "leaders"
+	MomentumDialogID  = "momentum"
+	RankingsDialogID  = "rankings"
 )
 
 // DialogAction represents an action returned by a dialog after handling a message.

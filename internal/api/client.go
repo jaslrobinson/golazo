@@ -24,3 +24,12 @@ type Client interface {
 	// leagueName is used to detect parent leagues for knockout competitions.
 	LeagueTable(ctx context.Context, leagueID int, leagueName string) ([]LeagueTableEntry, error)
 }
+
+// RankingsProvider is implemented by clients whose sport has ranking polls with
+// no equivalent in the base Client interface (e.g. AP Top 25 / Coaches Poll for
+// American football). Callers should type-assert an api.Client against this
+// interface before offering a rankings view.
+type RankingsProvider interface {
+	// Rankings retrieves all available polls (e.g. "AP Top 25", "AFCA Coaches Poll").
+	Rankings(ctx context.Context) ([]RankingPoll, error)
+}
