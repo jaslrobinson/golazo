@@ -2,7 +2,7 @@
 
 Golazo supports **65+ leagues and competitions**. Customize your selection in Settings.
 
-> **Missing your favourite league?** [Create an issue](https://github.com/0xjuanma/golazo/issues/new) and we'll add it!
+> **Missing your favourite league?** [Create an issue](https://github.com/jaslrobinson/golazo/issues/new) and we'll add it!
 
 ## Europe — Top Leagues
 

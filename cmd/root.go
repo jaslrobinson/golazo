@@ -8,10 +8,10 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/0xjuanma/golazo/internal/app"
-	"github.com/0xjuanma/golazo/internal/data"
-	"github.com/0xjuanma/golazo/internal/version"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/jaslrobinson/golazo/internal/app"
+	"github.com/jaslrobinson/golazo/internal/data"
+	"github.com/jaslrobinson/golazo/internal/version"
 	"github.com/spf13/cobra"
 )
 
@@ -26,8 +26,8 @@ var wcYearFlag string
 
 var rootCmd = &cobra.Command{
 	Use:   "golazo",
-	Short: "The beautiful game in your terminal",
-	Long:  `A minimal TUI for following football matches in real-time. Get live match updates, finished match statistics, and minute-by-minute events directly in your terminal.`,
+	Short: "NCAA college football scores in your terminal",
+	Long:  `A minimal TUI for following NCAA college football in real-time - live scores, conferences, matchup details, win-probability, player leaders, and rankings, directly in your terminal.`,
 	// Suppress cobra's default plain-text error printing so we can wrap
 	// flag/subcommand errors in the agent-facing JSON envelope (see Execute).
 	SilenceErrors: true,
@@ -139,7 +139,7 @@ func decideUpdate(current, latest string, fetchErr error) (proceed bool, message
 
 // runBrewUpdate attempts to update golazo via Homebrew.
 func runBrewUpdate() error {
-	cmd := exec.Command("brew", "upgrade", "0xjuanma/tap/golazo")
+	cmd := exec.Command("brew", "upgrade", "jaslrobinson/tap/golazo")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
@@ -153,7 +153,7 @@ func runBrewUpdate() error {
 		// In both cases the formula was built successfully; attempt a forced
 		// re-link before giving up and falling back to the script.
 		fmt.Println("Attempting brew link recovery...")
-		linkCmd := exec.Command("brew", "link", "--overwrite", "0xjuanma/tap/golazo")
+		linkCmd := exec.Command("brew", "link", "--overwrite", "jaslrobinson/tap/golazo")
 		linkCmd.Stdout = os.Stdout
 		linkCmd.Stderr = os.Stderr
 		if linkErr := linkCmd.Run(); linkErr == nil {
@@ -168,9 +168,9 @@ func runBrewUpdate() error {
 func runScriptUpdate() error {
 	var cmd *exec.Cmd
 	if runtime.GOOS == "windows" {
-		cmd = exec.Command("powershell", "-Command", "irm https://raw.githubusercontent.com/0xjuanma/golazo/main/scripts/install.ps1 | iex")
+		cmd = exec.Command("powershell", "-Command", "irm https://raw.githubusercontent.com/jaslrobinson/golazo/main/scripts/install.ps1 | iex")
 	} else {
-		cmd = exec.Command("bash", "-c", "curl -fsSL https://raw.githubusercontent.com/0xjuanma/golazo/main/scripts/install.sh | bash")
+		cmd = exec.Command("bash", "-c", "curl -fsSL https://raw.githubusercontent.com/jaslrobinson/golazo/main/scripts/install.sh | bash")
 	}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

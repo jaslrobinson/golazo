@@ -226,7 +226,7 @@ This single env var:
 - Routes all debug logging to stderr so stdout stays clean for `jq` pipelines
 - Acts as a future-proof "I am not a human" signal — if Golazo ever grows interactive prompts or color escapes, this flag will suppress them
 
-A repository-root `tool.json` manifest also describes the CLI for agent indexers; see the top of [the repo](https://github.com/0xjuanma/golazo/blob/main/tool.json).
+A repository-root `tool.json` manifest also describes the CLI for agent indexers; see the top of [the repo](https://github.com/jaslrobinson/golazo/blob/main/tool.json).
 
 ## Determinism guarantees
 

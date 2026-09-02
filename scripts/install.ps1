@@ -1,5 +1,5 @@
 # Golazo Installer for Windows
-# Run with: irm https://raw.githubusercontent.com/0xjuanma/golazo/main/scripts/install.ps1 | iex
+# Run with: irm https://raw.githubusercontent.com/jaslrobinson/golazo/main/scripts/install.ps1 | iex
 
 $ErrorActionPreference = "Stop"
 
@@ -10,7 +10,7 @@ $asciiLogo = @"
 ╱╱╱╱  ▀▀▀▀   ▀▀▀  ▀▀▀▀ ▀       ▀ ▀▀▀▀▀  ▀▀▀  ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱  
 "@
 
-$repo = "0xjuanma/golazo"
+$repo = "jaslrobinson/golazo"
 $binaryName = "golazo"
 
 # Print header

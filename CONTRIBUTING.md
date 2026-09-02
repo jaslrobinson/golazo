@@ -4,7 +4,7 @@ Thanks for your interest in contributing to Golazo! All contributions are welcom
 
 ## Submitting Changes
 
-1. **Create an [issue](https://github.com/0xjuanma/golazo/issues)** describing the feature/bug fix you want to work on
+1. **Create an [issue](https://github.com/jaslrobinson/golazo/issues)** describing the feature/bug fix you want to work on
 2. Create a feature branch from `main`
 3. Make your changes and ensure `go build` is successful
 4. Update documentation if needed
@@ -14,7 +14,7 @@ Thanks for your interest in contributing to Golazo! All contributions are welcom
 
 ## Getting Help
 
-- Check existing [issues](https://github.com/0xjuanma/golazo/issues) and [discussions](https://github.com/0xjuanma/golazo/discussions)
+- Check existing [issues](https://github.com/jaslrobinson/golazo/issues) and [discussions](https://github.com/jaslrobinson/golazo/discussions)
 - Review the [CHANGELOG.md](CHANGELOG.md) for recent changes
 - Examine the [scripts/](scripts/) directory for development utilities
 

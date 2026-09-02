@@ -29,7 +29,7 @@ ASCII_LOGO="╱╱╱╱ ▄▀▀▀▀  ▄▀▀▀▄ █     ▄▀▀▀�
 ╱╱╱╱ █   ▀█ █   █ █    █▀▀▀▀▀▀▀█  █▀▀  █   █ ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱ 
 ╱╱╱╱  ▀▀▀▀   ▀▀▀  ▀▀▀▀ ▀       ▀ ▀▀▀▀▀  ▀▀▀  ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱  "
 
-REPO="0xjuanma/golazo"
+REPO="jaslrobinson/golazo"
 BINARY_NAME="golazo"
 INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
 
