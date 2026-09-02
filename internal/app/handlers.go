@@ -3,9 +3,9 @@ package app
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/0xjuanma/golazo/internal/api"
-	"github.com/0xjuanma/golazo/internal/fotmob"
 	"github.com/0xjuanma/golazo/internal/ui"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
@@ -17,7 +17,7 @@ import (
 func (m model) handleMainViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "j", "down":
-		if m.selected < 3 && !m.mainViewLoading { // 4 menu items: 0, 1, 2, 3
+		if m.selected < 2 && !m.mainViewLoading { // 3 menu items: 0, 1, 2
 			m.selected++
 		}
 	case "k", "up":
@@ -29,30 +29,12 @@ func (m model) handleMainViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-		// Handle Settings view separately (no API calls needed)
+		// Handle Conferences view separately (no API call — the conference
+		// list itself is static; standings are fetched per-selection).
 		if m.selected == 2 {
-			m.settingsState = ui.NewSettingsState()
-			m.currentView = viewSettings
+			m.conferencesSelectedIdx = 0
+			m.currentView = viewConferences
 			return m, nil
-		}
-
-		// Handle World Cup view (immediate switch, loads data async)
-		if m.selected == 3 {
-			if m.loadCancel != nil {
-				m.loadCancel()
-			}
-			m.loadCtx, m.loadCancel = context.WithCancel(context.Background())
-			m.wcData = nil
-			m.wcLoading = true
-			m.wcSubView = wcSubViewGroupGrid
-			m.wcLastError = ""
-			m.currentView = viewWorldCup
-			if m.useMockData {
-				m.debugLog(fmt.Sprintf("fetchWorldCupMockData: year=%q", m.wcYear))
-				return m, fetchWorldCupMockData(m.wcYear)
-			}
-			m.debugLog(fmt.Sprintf("fetchWorldCupData: year=%q", m.wcYear))
-			return m, fetchWorldCupData(m.loadCtx, m.fotmobClient, m.wcYear)
 		}
 
 		m.mainViewLoading = true
@@ -88,24 +70,24 @@ func (m model) handleMainViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.loading = true
 			m.statsData = nil                          // Clear cached data to force fresh fetch
 			m.statsDaysLoaded = 0                      // Reset progress
-			m.statsTotalDays = fotmob.StatsDataDays    // Set total days to load
+			m.statsFetchHadError = false               // Reset error tracking for the new fetch sequence
+			m.statsTotalDays = StatsLookbackDays       // Set total days to load
 			m.statsMatchesList.SetItems([]list.Item{}) // Clear list
 			cmds = append(cmds, ui.SpinnerTick())
 			// Start fetching day 0 (today) first - results shown immediately when it completes
-			cmds = append(cmds, fetchStatsDayData(m.loadCtx, m.fotmobClient, m.useMockData, 0, fotmob.StatsDataDays))
-		case 1: // Live Matches view - preload live matches progressively (parallel batches)
+			cmds = append(cmds, fetchStatsDayData(m.loadCtx, m.client, m.useMockData, 0, StatsLookbackDays))
+		case 1: // Live Matches view - preload live matches
 			m.liveViewLoading = true
 			m.loading = true
 			m.liveBatchesLoaded = 0
-			totalLeagues := fotmob.TotalLeagues()
-			m.liveTotalBatches = (totalLeagues + LiveBatchSize - 1) / LiveBatchSize // Ceiling division
-			m.liveMatchesBuffer = nil                                               // Clear buffer
-			m.liveUpcomingBuffer = nil                                              // Clear upcoming buffer
-			m.liveUpcomingMatches = nil                                             // Clear upcoming display
+			m.liveTotalBatches = 1      // ESPN's scoreboard returns every game in one call; no per-league batching needed
+			m.liveMatchesBuffer = nil   // Clear buffer
+			m.liveUpcomingBuffer = nil  // Clear upcoming buffer
+			m.liveUpcomingMatches = nil // Clear upcoming display
 			m.liveMatchesList.SetItems([]list.Item{})
 			cmds = append(cmds, ui.SpinnerTick())
-			// Start fetching batch 0 (4 leagues in parallel) - results shown when batch completes
-			cmds = append(cmds, fetchLiveBatchData(m.loadCtx, m.fotmobClient, m.useMockData, 0))
+			// Single fetch covers every game for today; isLast is always true.
+			cmds = append(cmds, fetchLiveBatchData(m.loadCtx, m.client, m.useMockData, 0))
 		}
 
 		return m, tea.Batch(cmds...)
@@ -167,12 +149,13 @@ func (m model) handleStatsViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	m.statsViewLoading = true
 	m.loading = true
 	m.statsDaysLoaded = 0
-	m.statsTotalDays = fotmob.StatsDataDays
+	m.statsFetchHadError = false
+	m.statsTotalDays = StatsLookbackDays
 	if m.loadCancel != nil {
 		m.loadCancel()
 	}
 	m.loadCtx, m.loadCancel = context.WithCancel(context.Background())
-	return m, tea.Batch(m.spinner.Tick, ui.SpinnerTick(), fetchStatsDayData(m.loadCtx, m.fotmobClient, m.useMockData, 0, fotmob.StatsDataDays))
+	return m, tea.Batch(m.spinner.Tick, ui.SpinnerTick(), fetchStatsDayData(m.loadCtx, m.client, m.useMockData, 0, StatsLookbackDays))
 }
 
 // loadMatchDetails loads match details for the live matches view.
@@ -195,9 +178,9 @@ func (m model) loadMatchDetailsWithRefresh(matchID int, forceRefresh bool) (tea.
 
 	var cmd tea.Cmd
 	if forceRefresh {
-		cmd = fetchMatchDetailsForceRefresh(m.fotmobClient, matchID, m.useMockData)
+		cmd = fetchMatchDetailsForceRefresh(m.client, matchID, m.useMockData)
 	} else {
-		cmd = fetchMatchDetails(m.fotmobClient, matchID, m.useMockData)
+		cmd = fetchMatchDetails(m.client, matchID, m.useMockData)
 	}
 
 	if chainAlive {
@@ -233,7 +216,7 @@ func (m model) loadStatsMatchDetailsWithRefresh(matchID int, forceRefresh bool) 
 	m.loading = true
 	m.statsViewLoading = true
 	m.debugLog(fmt.Sprintf("Fetching match details from API for ID: %d", matchID))
-	return m, tea.Batch(m.spinner.Tick, ui.SpinnerTick(), fetchStatsMatchDetailsFotmob(m.fotmobClient, matchID, m.useMockData))
+	return m, tea.Batch(m.spinner.Tick, ui.SpinnerTick(), fetchStatsMatchDetails(m.client, matchID, m.useMockData))
 }
 
 // handleSettingsViewKeys processes keyboard input for the settings view.
@@ -274,4 +257,33 @@ func (m model) handleSettingsViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	var listCmd tea.Cmd
 	m.settingsState.List, listCmd = m.settingsState.List.Update(msg)
 	return m, listCmd
+}
+
+// handleConferencesViewKeys processes keyboard input for the Conferences
+// view. Enter fetches (or reuses the cached) standings for the highlighted
+// conference and opens the same Standings dialog used from a match — there's
+// no "home/away team" context here, so nothing is highlighted in the table.
+func (m model) handleConferencesViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "j", "down":
+		if m.conferencesSelectedIdx < len(m.conferences)-1 {
+			m.conferencesSelectedIdx++
+		}
+	case "k", "up":
+		if m.conferencesSelectedIdx > 0 {
+			m.conferencesSelectedIdx--
+		}
+	case "enter":
+		if len(m.conferences) == 0 {
+			return m, nil
+		}
+		conf := m.conferences[m.conferencesSelectedIdx]
+		if entry, ok := m.standingsCache[conf.ID]; ok && time.Since(entry.fetchedAt) < 5*time.Minute {
+			dialog := ui.NewStandingsDialog(entry.leagueName, entry.standings, entry.homeTeamID, entry.awayTeamID)
+			m.dialogOverlay.OpenDialog(dialog)
+			return m, nil
+		}
+		return m, fetchStandings(m.client, conf.ID, conf.Name, 0, 0)
+	}
+	return m, nil
 }

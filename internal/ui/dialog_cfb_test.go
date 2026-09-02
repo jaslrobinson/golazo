@@ -115,6 +115,26 @@ func TestDescribeBiggestSwing(t *testing.T) {
 	}
 }
 
+func TestSituationDialog_ZeroValueSituationShowsEmptyState(t *testing.T) {
+	// Regression test: a Situation{} with Down==0 (e.g. a provider that only
+	// attached a LastPlay fallback) must render the empty state, not a
+	// misleading "1st & 0" with the ball on the opponent's goal line.
+	dialog := NewSituationDialog("Home", "Away", 10, 7, 1, 2, &api.Situation{LastPlay: "some text"})
+	view := dialog.View(120, 40)
+	if !contains(view, "No live situation data available") {
+		t.Errorf("expected empty-state message for a zero-Down situation, got:\n%s", view)
+	}
+
+	// A real situation (Down > 0) should render normally, not the empty state.
+	dialog2 := NewSituationDialog("Home", "Away", 10, 7, 1, 2, &api.Situation{
+		Down: 2, Distance: 6, YardsToEndzone: 56, DownDistanceText: "2nd & 6",
+	})
+	view2 := dialog2.View(120, 40)
+	if contains(view2, "No live situation data available") {
+		t.Errorf("a real situation should not show the empty state, got:\n%s", view2)
+	}
+}
+
 func TestAxisLine(t *testing.T) {
 	for _, width := range []int{20, 45, 82, 200} {
 		got := axisLine(width, "Game start", "Now")

@@ -1,6 +1,8 @@
 package espncfb
 
 import (
+	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -68,6 +70,7 @@ func mapMatch(e rawEvent) (api.Match, bool) {
 
 	m := api.Match{
 		ID:        toInt(e.ID),
+		League:    conferenceByID(toInt(home.Team.ConferenceID)),
 		HomeTeam:  mapTeam(home.Team),
 		AwayTeam:  mapTeam(away.Team),
 		Status:    mapStatus(comp.Status.Type),
@@ -176,6 +179,37 @@ func mapLeaders(raw []rawTeamLeaders, homeAbbr, awayAbbr string) []api.LeaderCat
 	return out
 }
 
+// mapScoringPlays converts ESPN's scoringPlays feed into api.MatchEvent.
+// Football scoring plays don't decompose into a clean Player/Assist pair
+// (e.g. "Jayden Maiava 1 Yd Run (Caden Chittenden Kick)"), so the full text
+// goes in Description instead.
+func mapScoringPlays(raw []rawScoringPlay) []api.MatchEvent {
+	events := make([]api.MatchEvent, 0, len(raw))
+	for _, p := range raw {
+		events = append(events, api.MatchEvent{
+			ID:            toInt(p.ID),
+			DisplayMinute: fmt.Sprintf("Q%d %s", p.Period.Number, p.Clock.DisplayValue),
+			Type:          normalizeScoringPlayType(p.Type.Abbreviation),
+			Team:          mapTeam(p.Team),
+			Description:   p.Text,
+		})
+	}
+	return events
+}
+
+func normalizeScoringPlayType(abbr string) string {
+	switch abbr {
+	case "TD":
+		return "touchdown"
+	case "FG":
+		return "field_goal"
+	case "SF":
+		return "safety"
+	default:
+		return "score"
+	}
+}
+
 func mapMomentum(raw []rawWinProb) []api.MomentumPoint {
 	out := make([]api.MomentumPoint, 0, len(raw))
 	for _, p := range raw {
@@ -194,8 +228,8 @@ func mapRankingPoll(p rawPoll) api.RankingPoll {
 			Rank:            r.Current,
 			PreviousRank:    r.Previous,
 			Team:            mapTeam(r.Team),
-			Points:          r.Points,
-			FirstPlaceVotes: r.FirstPlaceVotes,
+			Points:          int(math.Round(r.Points)),
+			FirstPlaceVotes: int(math.Round(r.FirstPlaceVotes)),
 			Trend:           r.Trend,
 		})
 	}

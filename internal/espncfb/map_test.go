@@ -3,6 +3,7 @@ package espncfb
 import (
 	"encoding/json"
 	"testing"
+	"time"
 )
 
 // These fixtures are trimmed excerpts of real responses captured from
@@ -144,6 +145,61 @@ func TestMapRankingPoll_RealShape(t *testing.T) {
 	}
 }
 
+func TestMapRankingPoll_FloatFormattedPoints(t *testing.T) {
+	// Regression test: a live rankings call returned "points": 1672.0 for a
+	// non-AP poll (Coaches or FCS — the initial capture only sampled AP Top
+	// 25's whole-number format), which crashed json.Unmarshal when Points
+	// was typed int. Points/FirstPlaceVotes must accept float-formatted
+	// whole numbers too.
+	rawJSON := `{
+		"name": "AFCA Coaches Poll",
+		"ranks": [
+			{
+				"current": 1, "previous": 1, "points": 1672.0, "firstPlaceVotes": 40.0, "trend": "-",
+				"team": {"id": "194", "displayName": "Ohio State Buckeyes"}
+			}
+		]
+	}`
+	var poll rawPoll
+	if err := json.Unmarshal([]byte(rawJSON), &poll); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	mapped := mapRankingPoll(poll)
+	if len(mapped.Entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(mapped.Entries))
+	}
+	e := mapped.Entries[0]
+	if e.Points != 1672 {
+		t.Errorf("Points wrong: got %d, want 1672", e.Points)
+	}
+	if e.FirstPlaceVotes != 40 {
+		t.Errorf("FirstPlaceVotes wrong: got %d, want 40", e.FirstPlaceVotes)
+	}
+}
+
+func TestRawPlay_PeriodIsAnObjectNotAnInt(t *testing.T) {
+	// Regression test: rawPlay.Period was originally typed as a plain int,
+	// which crashed json.Unmarshal on every real drives.previous[].plays[]
+	// entry — MatchDetails failed for every match, live and finished. The
+	// field is unused by any mapping logic today (hence uncaught by the
+	// initial live capture, which never printed a play's "period"), but it
+	// must still decode without error since it's embedded in every play.
+	rawJSON := `{
+		"text": "(15:00) #99 M.Brown kickoff 64 yards to the USC01",
+		"period": {"number": 1},
+		"clock": {"displayValue": "15:00"},
+		"start": {"down": 0, "distance": 0, "yardLine": 35, "yardsToEndzone": 35},
+		"end": {"down": 0, "distance": 0, "yardLine": 1, "yardsToEndzone": 1}
+	}`
+	var play rawPlay
+	if err := json.Unmarshal([]byte(rawJSON), &play); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if play.Period.Number != 1 {
+		t.Errorf("period wrong: got %+v", play.Period)
+	}
+}
+
 func TestMapPlayPosition_RealShape(t *testing.T) {
 	// From drives.previous[0].plays[0].start in the real captured response.
 	rawJSON := `{"down": 1, "distance": 10, "yardLine": 65, "yardsToEndzone": 65}`
@@ -153,6 +209,136 @@ func TestMapPlayPosition_RealShape(t *testing.T) {
 	}
 	if pos.Down != 1 || pos.Distance != 10 || pos.YardLine != 65 || pos.YardsToEndzone != 65 {
 		t.Errorf("play position wrong: %+v", pos)
+	}
+}
+
+func TestMapScoringPlays_RealShape(t *testing.T) {
+	rawJSON := `[{
+		"id": "40186449471",
+		"type": {"id": "68", "text": "Rushing Touchdown", "abbreviation": "TD"},
+		"text": "Jayden Maiava 1 Yd Run (Caden Chittenden Kick)",
+		"awayScore": 0,
+		"homeScore": 7,
+		"period": {"number": 1},
+		"clock": {"value": 535, "displayValue": "8:55"},
+		"team": {"id": "30", "displayName": "USC Trojans", "abbreviation": "USC"}
+	}]`
+	var raw []rawScoringPlay
+	if err := json.Unmarshal([]byte(rawJSON), &raw); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	events := mapScoringPlays(raw)
+	if len(events) != 1 {
+		t.Fatalf("expected 1 event, got %d", len(events))
+	}
+	e := events[0]
+	if e.Type != "touchdown" {
+		t.Errorf("type wrong: got %q, want touchdown", e.Type)
+	}
+	if e.Description != "Jayden Maiava 1 Yd Run (Caden Chittenden Kick)" {
+		t.Errorf("description wrong: %q", e.Description)
+	}
+	if e.DisplayMinute != "Q1 8:55" {
+		t.Errorf("display minute wrong: %q", e.DisplayMinute)
+	}
+	if e.Team.Name != "USC Trojans" {
+		t.Errorf("team wrong: %+v", e.Team)
+	}
+}
+
+func TestConferenceByID_KnownAndUnknown(t *testing.T) {
+	sec := conferenceByID(8)
+	if sec.Name != "SEC" {
+		t.Errorf("expected SEC for id 8, got %+v", sec)
+	}
+	unknown := conferenceByID(9999)
+	if unknown.ID != 9999 || unknown.Name != "" {
+		t.Errorf("unknown conference should keep the ID with an empty name, got %+v", unknown)
+	}
+}
+
+func TestMapMatch_PopulatesLeagueFromConferenceID(t *testing.T) {
+	// Regression test: mapMatch originally never set League at all, which
+	// silently broke the standings keybinding (LeagueTable(ctx, 0, "") always
+	// failed). conferenceId is confirmed live as a plain JSON string.
+	rawJSON := `{
+		"id": "401858425",
+		"date": "2026-09-05T23:30:00Z",
+		"competitions": [{
+			"status": {"type": {"state": "pre"}},
+			"competitors": [
+				{"homeAway": "home", "team": {"id": "84", "location": "Indiana", "abbreviation": "IU", "conferenceId": "5"}, "score": "0"},
+				{"homeAway": "away", "team": {"id": "249", "location": "North Texas", "abbreviation": "UNT", "conferenceId": "151"}, "score": "0"}
+			]
+		}]
+	}`
+	var e rawEvent
+	if err := json.Unmarshal([]byte(rawJSON), &e); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	m, ok := mapMatch(e)
+	if !ok {
+		t.Fatal("mapMatch returned ok=false")
+	}
+	if m.League.ID != 5 || m.League.Name != "Big Ten" {
+		t.Errorf("League should come from the home team's conferenceId, got %+v", m.League)
+	}
+}
+
+func TestRawLeagueTableResponse_RealShape(t *testing.T) {
+	// Trimmed excerpt of a real response from
+	// site.web.api.espn.com/apis/v2/.../standings?season=2026&group=8
+	// (SEC), captured 2026-09-01. Regression test: an earlier version of
+	// this type assumed a "children[].standings.entries" wrapper that
+	// doesn't exist — entries live directly under top-level "standings".
+	rawJSON := `{
+		"standings": {
+			"entries": [
+				{
+					"team": {"id": "2", "location": "Auburn", "name": "Tigers", "abbreviation": "AUB", "displayName": "Auburn Tigers"},
+					"stats": [
+						{"name": "wins", "type": "vsconf_wins", "value": 0, "displayValue": "0"},
+						{"name": "overall", "type": "total", "summary": "0-0", "displayValue": "0-0"},
+						{"name": "vs. Conf.", "type": "vsconf", "summary": "0-0", "displayValue": "0-0"}
+					]
+				}
+			]
+		}
+	}`
+	var raw rawLeagueTableResponse
+	if err := json.Unmarshal([]byte(rawJSON), &raw); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(raw.Standings.Entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(raw.Standings.Entries))
+	}
+	entry := raw.Standings.Entries[0]
+	if entry.Team.DisplayName != "Auburn Tigers" {
+		t.Errorf("team wrong: %+v", entry.Team)
+	}
+	if got := standingsStat(entry.Stats, "vsconf"); got != "0-0" {
+		t.Errorf("vsconf composite lookup wrong: got %q", got)
+	}
+	if got := standingsStat(entry.Stats, "total"); got != "0-0" {
+		t.Errorf("total composite lookup wrong: got %q", got)
+	}
+
+	mapped := mapTeam(entry.Team)
+	if mapped.Name != "Auburn Tigers" || mapped.ID != 2 {
+		t.Errorf("mapTeam(entry.Team) wrong: %+v", mapped)
+	}
+}
+
+func TestEspnSeasonYear(t *testing.T) {
+	// Just documents the January-belongs-to-previous-season rule; doesn't
+	// depend on the actual current date.
+	jan := time.Date(2027, time.January, 5, 0, 0, 0, 0, time.UTC)
+	sep := time.Date(2026, time.September, 1, 0, 0, 0, 0, time.UTC)
+	if got := seasonYearFor(jan); got != 2026 {
+		t.Errorf("January should belong to the previous season year, got %d", got)
+	}
+	if got := seasonYearFor(sep); got != 2026 {
+		t.Errorf("September should belong to its own year, got %d", got)
 	}
 }
 

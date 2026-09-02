@@ -20,3 +20,16 @@ var fbsConferences = []api.League{
 	{ID: 37, Name: "Sun Belt", Country: "NCAA"},
 	{ID: 18, Name: "FBS Independents", Country: "NCAA"},
 }
+
+// conferenceByID looks up a conference by its ESPN group ID (confirmed live
+// via team.conferenceId). Returns a League with just the ID (empty name) for
+// an ID not in fbsConferences — e.g. an FCS or Group of 5 conference not
+// worth hardcoding — so LeagueTable can still be attempted.
+func conferenceByID(id int) api.League {
+	for _, c := range fbsConferences {
+		if c.ID == id {
+			return c
+		}
+	}
+	return api.League{ID: id}
+}

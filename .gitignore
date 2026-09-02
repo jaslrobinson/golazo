@@ -1,6 +1,7 @@
 .DS_Store
 golazo
 /dialog_preview
+/cfb_diagnose
 test_api.go
 test_api_setup.sh
 scripts/test_api.go

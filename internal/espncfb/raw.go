@@ -68,6 +68,7 @@ type rawTeam struct {
 	Abbreviation     string `json:"abbreviation"`
 	DisplayName      string `json:"displayName"`
 	ShortDisplayName string `json:"shortDisplayName"`
+	ConferenceID     string `json:"conferenceId,omitempty"` // confirmed live: a plain string, e.g. "5"
 	Logo             string `json:"logo,omitempty"`
 	Logos            []struct {
 		Href string `json:"href"`
@@ -129,7 +130,26 @@ type rawSummary struct {
 	Drives         rawDrives        `json:"drives"`
 	Leaders        []rawTeamLeaders `json:"leaders"`
 	WinProbability []rawWinProb     `json:"winprobability"`
+	ScoringPlays   []rawScoringPlay `json:"scoringPlays"`
 	Standings      *rawStandings    `json:"standings,omitempty"`
+}
+
+type rawScoringPlay struct {
+	ID     string             `json:"id"`
+	Type   rawScoringPlayType `json:"type"`
+	Text   string             `json:"text"`
+	Period rawPeriod          `json:"period"`
+	Clock  rawClock           `json:"clock"`
+	Team   rawTeam            `json:"team"`
+}
+
+type rawScoringPlayType struct {
+	Text         string `json:"text"`         // e.g. "Rushing Touchdown"
+	Abbreviation string `json:"abbreviation"` // e.g. "TD"
+}
+
+type rawPeriod struct {
+	Number int `json:"number"`
 }
 
 // rawHeader carries the base game state (teams, score, status). Its
@@ -181,8 +201,12 @@ type rawDriveTeam struct {
 }
 
 type rawPlay struct {
-	Text   string          `json:"text"`
-	Period int             `json:"period"`
+	Text string `json:"text"`
+	// Period is an object ({"number": N}), not a plain int — confirmed live
+	// after this field (unused by any mapping logic, hence uncaught by the
+	// original capture) crashed json.Unmarshal on every real drives payload.
+	// Same shape as rawScoringPlay.Period; not currently consumed.
+	Period rawPeriod       `json:"period"`
 	Clock  rawClock        `json:"clock"`
 	Start  rawPlayPosition `json:"start"`
 	End    rawPlayPosition `json:"end"`
@@ -225,6 +249,26 @@ type rawWinProb struct {
 	HomeWinPercentage float64 `json:"homeWinPercentage"`
 }
 
+// rawLeagueTableResponse is the response of GET
+// site.web.api.espn.com/apis/v2/.../standings?season={year}&group={id} — a
+// DIFFERENT host and shape than the per-match summary.standings above.
+// Confirmed live: {standings: {entries: [...]}} at the top level, no
+// "children" wrapping (an earlier guess assumed children[].standings —
+// wrong; fixed after confirming this shape against a real conference).
+type rawLeagueTableResponse struct {
+	Standings struct {
+		Entries []rawLeagueTableEntry `json:"entries"`
+	} `json:"standings"`
+}
+
+// rawLeagueTableEntry.Team is a full team object here (confirmed live),
+// unlike the per-match summary.standings entries above where team is a bare
+// name string.
+type rawLeagueTableEntry struct {
+	Team  rawTeam            `json:"team"`
+	Stats []rawStandingsStat `json:"stats"`
+}
+
 // rawStandings mirrors summary.standings, which only covers the two
 // conferences relevant to one match. LeagueTable uses the separate
 // /apis/v2/.../standings?group={id} endpoint instead — see UNVERIFIED note
@@ -263,10 +307,16 @@ type rawPoll struct {
 }
 
 type rawRank struct {
-	Current         int     `json:"current"`
-	Previous        int     `json:"previous"`
-	Points          int     `json:"points"`
-	FirstPlaceVotes int     `json:"firstPlaceVotes"`
-	Trend           string  `json:"trend"`
-	Team            rawTeam `json:"team"`
+	Current  int     `json:"current"`
+	Previous int     `json:"previous"`
+	Trend    string  `json:"trend"`
+	Team     rawTeam `json:"team"`
+
+	// Points and FirstPlaceVotes are float64, not int: confirmed live that
+	// at least one non-AP poll (the initial capture only sampled AP Top 25)
+	// sends "points" as a float-formatted number (e.g. 1672.0), which Go's
+	// json package refuses to decode into an int field even though the
+	// value is a whole number.
+	Points          float64 `json:"points"`
+	FirstPlaceVotes float64 `json:"firstPlaceVotes"`
 }

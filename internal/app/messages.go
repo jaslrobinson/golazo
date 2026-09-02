@@ -2,7 +2,6 @@ package app
 
 import (
 	"github.com/0xjuanma/golazo/internal/api"
-	"github.com/0xjuanma/golazo/internal/fotmob"
 	"github.com/0xjuanma/golazo/internal/reddit"
 )
 
@@ -41,7 +40,7 @@ type liveBatchDataMsg struct {
 // statsDataMsg contains all stats data (5 days finished + today upcoming) from API response.
 // This is the unified message for stats view - always fetches 5 days, filters client-side.
 type statsDataMsg struct {
-	data *fotmob.StatsData
+	data *statsViewData
 }
 
 // statsDayDataMsg contains stats data for a single day (progressive loading).
@@ -104,6 +103,15 @@ type standingsMsg struct {
 	standings  []api.LeagueTableEntry
 	homeTeamID int
 	awayTeamID int
+}
+
+// rankingsMsg contains ranking polls (AP Top 25, Coaches Poll, etc) from API
+// response. Used to populate the rankings dialog. err is set when the
+// current client doesn't support rankings (see api.RankingsProvider) or the
+// fetch failed.
+type rankingsMsg struct {
+	polls []api.RankingPoll
+	err   error
 }
 
 // wcDataMsg contains World Cup data fetched from FotMob or mock.

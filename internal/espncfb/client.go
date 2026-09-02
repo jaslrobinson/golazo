@@ -40,7 +40,17 @@ func (c *Client) get(ctx context.Context, url string, out any) error {
 	if err != nil {
 		return err
 	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; golazo-cfb/0.1)")
+	// site.api.espn.com (scoreboard/summary/rankings) returned 403 to a
+	// synthetic User-Agent while site.web.api.espn.com (standings) — same
+	// process, same headers otherwise — returned 200. That asymmetry points
+	// at host-specific Akamai bot detection rather than a network-level
+	// block, so mimicking a real browser request is the first thing worth
+	// testing before assuming this is unfixable from a plain HTTP client.
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36")
+	req.Header.Set("Accept", "application/json, text/plain, */*")
+	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
+	req.Header.Set("Referer", "https://www.espn.com/")
+	req.Header.Set("Origin", "https://www.espn.com")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -118,6 +128,7 @@ func (c *Client) MatchDetails(ctx context.Context, matchID int) (*api.MatchDetai
 
 	base := api.Match{
 		ID:        matchID,
+		League:    conferenceByID(toInt(home.Team.ConferenceID)),
 		HomeTeam:  mapTeam(home.Team),
 		AwayTeam:  mapTeam(away.Team),
 		Status:    mapStatus(hc.Status.Type),
@@ -130,6 +141,7 @@ func (c *Client) MatchDetails(ctx context.Context, matchID int) (*api.MatchDetai
 
 	details := &api.MatchDetails{
 		Match:     base,
+		Events:    mapScoringPlays(raw.ScoringPlays),
 		Situation: mapSituation(hc.Situation, base.HomeTeam.ID, base.AwayTeam.ID),
 		Leaders:   mapLeaders(raw.Leaders, home.Team.Abbreviation, away.Team.Abbreviation),
 		Momentum:  mapMomentum(raw.WinProbability),
@@ -147,15 +159,18 @@ func (c *Client) MatchDetails(ctx context.Context, matchID int) (*api.MatchDetai
 		details.Statistics = mapStatistics(homeBox, awayBox)
 	}
 
-	// Fall back to the last completed play's text when the header didn't
-	// carry a live situation (e.g. finished games, or if the UNVERIFIED
-	// header.situation mirroring doesn't hold).
-	if details.Situation == nil || details.Situation.LastPlay == "" {
-		if lp := lastCompletedPlayText(raw.Drives.Previous); lp != "" {
-			if details.Situation == nil {
-				details.Situation = &api.Situation{}
-			}
-			details.Situation.LastPlay = lp
+	// Only attach a last-play fallback for LIVE games, and only when the
+	// header didn't already carry one via the UNVERIFIED header.situation
+	// mirroring. A finished or not-yet-started game must leave Situation nil
+	// — synthesizing a zero-value api.Situation{} here would render as
+	// "1st & 0, ball on the opponent's goal line" in the Situation dialog,
+	// which is actively misleading rather than merely incomplete.
+	if hc.Status.Type.State == "in" {
+		if details.Situation == nil {
+			details.Situation = &api.Situation{}
+		}
+		if details.Situation.LastPlay == "" {
+			details.Situation.LastPlay = lastCompletedPlayText(raw.Drives.Previous)
 		}
 	}
 
@@ -175,37 +190,46 @@ func lastCompletedPlayText(drives []rawDrive) string {
 
 // LeagueTable retrieves conference standings.
 //
-// UNVERIFIED end-to-end: hits a different host (site.web.api.espn.com) whose
-// response shape was not captured live for college football. Confirm before
-// shipping — this is a best-effort implementation based on ESPN's
-// documented cross-sport standings convention.
+// Verified live (2026-09-01) against SEC (group=8): the endpoint returns
+// {standings: {entries: [...]}} at the top level (no "children" wrapping —
+// an earlier version of this method assumed that shape and was wrong), each
+// entry.team is a full team object, and stats includes composite "vsconf"
+// and "total" entries with ready-made "W-L" summary strings alongside dozens
+// of decomposed per-split stats (home/away/division/etc.) that this doesn't
+// need.
 func (c *Client) LeagueTable(ctx context.Context, leagueID int, leagueName string) ([]api.LeagueTableEntry, error) {
-	url := fmt.Sprintf("%s?season=%d&group=%d", standingsBaseURL, time.Now().Year(), leagueID)
-	var raw struct {
-		Children []struct {
-			Standings struct {
-				Entries []rawStandingsEntry `json:"entries"`
-			} `json:"standings"`
-		} `json:"children"`
-	}
+	url := fmt.Sprintf("%s?season=%d&group=%d", standingsBaseURL, espnSeasonYear(), leagueID)
+	var raw rawLeagueTableResponse
 	if err := c.get(ctx, url, &raw); err != nil {
 		return nil, err
 	}
 
-	var entries []api.LeagueTableEntry
-	pos := 1
-	for _, child := range raw.Children {
-		for _, e := range child.Standings.Entries {
-			entries = append(entries, api.LeagueTableEntry{
-				Position:         pos,
-				Team:             api.Team{ID: toInt(e.ID), Name: e.Team, ShortName: e.Team},
-				ConferenceRecord: standingsStat(e.Stats, "vsconf"),
-				OverallRecord:    standingsStat(e.Stats, "total"),
-			})
-			pos++
-		}
+	entries := make([]api.LeagueTableEntry, 0, len(raw.Standings.Entries))
+	for i, e := range raw.Standings.Entries {
+		entries = append(entries, api.LeagueTableEntry{
+			Position:         i + 1,
+			Team:             mapTeam(e.Team),
+			ConferenceRecord: standingsStat(e.Stats, "vsconf"),
+			OverallRecord:    standingsStat(e.Stats, "total"),
+		})
 	}
 	return entries, nil
+}
+
+// espnSeasonYear returns the college football season year for standings
+// requests.
+func espnSeasonYear() int {
+	return seasonYearFor(time.Now())
+}
+
+// seasonYearFor is the pure logic behind espnSeasonYear, split out for
+// testability. The season spans Aug-Jan, so games in Jan (bowl season/CFP)
+// still belong to the season that started the previous calendar year.
+func seasonYearFor(t time.Time) int {
+	if t.Month() == time.January {
+		return t.Year() - 1
+	}
+	return t.Year()
 }
 
 // Rankings retrieves the current AP Top 25, Coaches Poll, and other

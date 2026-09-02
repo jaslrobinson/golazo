@@ -1,4 +1,4 @@
-// Package logo renders a GOLAZO wordmark in a stylized way.
+// Package logo renders an NCAA-TUI wordmark in a stylized way.
 package logo
 
 import (
@@ -10,13 +10,23 @@ import (
 	"github.com/lucasb-eyer/go-colorful"
 )
 
-// letterform represents a letterform. It can be stretched horizontally
-// via the boolean argument.
-type letterform func(bool) string
-
 const diag = `╱`
 
-// Opts are the options for rendering the GOLAZO title art.
+// wordmarkArt is the main-menu title, generated with `figlet -f standard
+// "NCAA-TUI"`. Two earlier attempts at this word didn't work out: hand-built
+// 3-row Unicode-block glyphs (matching the original GOLAZO wordmark's style)
+// read as an illegible blob once the per-character gradient was applied at
+// that resolution, and plain letter-spaced text lacked any presence. A
+// proven figlet font gives a taller, unambiguous letterform per character
+// without hand-tuning glyphs — baked in as a static string since embedding
+// figlet itself (or a font file) isn't worth the dependency for one banner.
+const wordmarkArt = ` _   _  ____    _        _       _____ _   _ ___
+| \ | |/ ___|  / \      / \     |_   _| | | |_ _|
+|  \| | |     / _ \    / _ \ _____| | | | | || |
+| |\  | |___ / ___ \  / ___ \_____| | | |_| || |
+|_| \_|\____/_/   \_\/_/   \_\    |_|  \___/|___|`
+
+// Opts are the options for rendering the NCAA-TUI title art.
 type Opts struct {
 	FieldColorHex    string // diagonal lines color
 	GradientStartHex string // left gradient ramp point
@@ -35,7 +45,7 @@ func DefaultOpts() Opts {
 	}
 }
 
-// Render renders the GOLAZO logo.
+// Render renders the NCAA-TUI logo.
 // The compact argument determines whether it renders compact (for sidebar)
 // or wider (for main pane).
 func Render(version string, compact bool, o Opts) string {
@@ -43,51 +53,33 @@ func Render(version string, compact bool, o Opts) string {
 		return lipgloss.NewStyle().Foreground(lipgloss.Color(hexColor)).Render(s)
 	}
 
-	// Title letterforms
-	const spacing = 1
-	letterforms := []letterform{
-		letterG,
-		letterO,
-		letterL,
-		letterA,
-		letterZ,
-		letterO,
-	}
-
-	// Randomly stretch one letter in wide mode
-	stretchIndex := -1
-	if !compact {
-		stretchIndex = cachedRandN(len(letterforms))
-	}
-
-	golazo := renderWord(spacing, stretchIndex, letterforms...)
-	golazoWidth := lipgloss.Width(golazo)
-
-	// Apply gradient to the title
+	// Apply the gradient per line so it reads consistently top-to-bottom
+	// rather than restarting per row.
 	b := new(strings.Builder)
-	for line := range strings.SplitSeq(golazo, "\n") {
+	for line := range strings.SplitSeq(wordmarkArt, "\n") {
 		if line != "" {
 			b.WriteString(applyLineGradient(line, o.GradientStartHex, o.GradientEndHex))
 		}
 		b.WriteString("\n")
 	}
-	golazo = strings.TrimSuffix(b.String(), "\n")
+	wordmark := strings.TrimSuffix(b.String(), "\n")
+	wordmarkWidth := lipgloss.Width(wordmark)
 
 	// Version row
 	versionStyled := fg(o.GradientEndHex, version)
-	gap := max(0, golazoWidth-lipgloss.Width(version))
+	gap := max(0, wordmarkWidth-lipgloss.Width(version))
 	metaRow := strings.Repeat(" ", gap) + versionStyled
 
-	// Join the meta row and big GOLAZO title
-	golazo = strings.TrimSpace(golazo + "\n" + metaRow)
+	// Join the meta row and the title
+	wordmark = strings.TrimSpace(wordmark + "\n" + metaRow)
 
 	// Narrow/compact version
 	if compact {
-		field := fg(o.FieldColorHex, strings.Repeat(diag, golazoWidth))
-		return strings.Join([]string{field, golazo, field}, "\n")
+		field := fg(o.FieldColorHex, strings.Repeat(diag, wordmarkWidth))
+		return strings.Join([]string{field, wordmark, field}, "\n")
 	}
 
-	fieldHeight := lipgloss.Height(golazo)
+	fieldHeight := lipgloss.Height(wordmark)
 
 	// Left field
 	const leftWidth = 4
@@ -98,7 +90,7 @@ func Render(version string, compact bool, o Opts) string {
 	}
 
 	// Right field with step-down effect
-	rightWidth := max(10, o.Width-golazoWidth-leftWidth-2)
+	rightWidth := max(10, o.Width-wordmarkWidth-leftWidth-2)
 	rightField := new(strings.Builder)
 	for i := range fieldHeight {
 		width := rightWidth - i
@@ -110,7 +102,7 @@ func Render(version string, compact bool, o Opts) string {
 
 	// Join horizontally
 	const hGap = " "
-	logo := lipgloss.JoinHorizontal(lipgloss.Top, leftField.String(), hGap, golazo, hGap, rightField.String())
+	logo := lipgloss.JoinHorizontal(lipgloss.Top, leftField.String(), hGap, wordmark, hGap, rightField.String())
 
 	// Truncate to width if needed
 	if o.Width > 0 {
@@ -128,7 +120,7 @@ func Render(version string, compact bool, o Opts) string {
 
 // RenderCompact renders a smaller inline version suitable for headers.
 func RenderCompact(width int) string {
-	return design.RenderHeader("GOLAZO", width)
+	return design.RenderHeader("NCAA-TUI", width)
 }
 
 // applyLineGradient applies a gradient to a single line of text.
@@ -160,34 +152,6 @@ func applyLineGradient(text string, startHex, endHex string) string {
 	return result.String()
 }
 
-// renderWord renders letterforms to form a word.
-func renderWord(spacing int, stretchIndex int, letterforms ...letterform) string {
-	if spacing < 0 {
-		spacing = 0
-	}
-
-	rendered := make([]string, len(letterforms))
-	for i, letter := range letterforms {
-		rendered[i] = letter(i == stretchIndex)
-	}
-
-	// Add spacing between letters
-	if spacing > 0 {
-		spaced := make([]string, 0, len(rendered)*2-1)
-		for i, r := range rendered {
-			spaced = append(spaced, r)
-			if i < len(rendered)-1 {
-				spaced = append(spaced, strings.Repeat(" ", spacing))
-			}
-		}
-		rendered = spaced
-	}
-
-	return strings.TrimSpace(
-		lipgloss.JoinHorizontal(lipgloss.Top, rendered...),
-	)
-}
-
 // truncateAnsi truncates a string with ANSI codes to a given width.
 func truncateAnsi(s string, width int) string {
 	if lipgloss.Width(s) <= width {
@@ -199,107 +163,4 @@ func truncateAnsi(s string, width int) string {
 		return string(runes[:width])
 	}
 	return s
-}
-
-// Letterform definitions using Unicode block characters
-// ▄ ▀ █ ▌ ▐
-
-func letterG(stretch bool) string {
-	left := "▄\n█\n "
-	center := "▀\n \n▀"
-	right := "▀\n▀█\n▀"
-
-	return joinLetterform(
-		left,
-		stretchPart(center, stretch, 3, 5, 8),
-		right,
-	)
-}
-
-func letterO(stretch bool) string {
-	left := "▄\n█\n "
-	center := "▀\n \n▀"
-	right := "▄\n█\n "
-
-	return joinLetterform(
-		left,
-		stretchPart(center, stretch, 3, 5, 8),
-		right,
-	)
-}
-
-func letterL(stretch bool) string {
-	left := "█\n█\n▀"
-	bottom := " \n \n▀"
-
-	return joinLetterform(
-		left,
-		stretchPart(bottom, stretch, 3, 5, 8),
-	)
-}
-
-func letterA(stretch bool) string {
-	left := " ▄\n█▀\n▀ "
-	center := "▀\n▀\n "
-	right := "▄ \n▀█\n ▀"
-
-	return joinLetterform(
-		left,
-		stretchPart(center, stretch, 2, 4, 7),
-		right,
-	)
-}
-
-func letterZ(stretch bool) string {
-	// Z shape with thick diagonal:
-	// ▀▀▀▀█
-	//  █▀▀
-	// ▀▀▀▀▀
-	topWidth := 4
-	if stretch {
-		topWidth = cachedRandN(4) + 5 // 5-8
-	}
-
-	// Build each line with proper alignment
-	line1 := strings.Repeat("▀", topWidth) + "█"
-	line2 := strings.Repeat(" ", topWidth-3) + "█▀▀"
-	line3 := "▀" + strings.Repeat("▀", topWidth-1) + "▀"
-
-	return line1 + "\n" + line2 + "\n" + line3
-}
-
-func joinLetterform(parts ...string) string {
-	return lipgloss.JoinHorizontal(lipgloss.Top, parts...)
-}
-
-func stretchPart(s string, stretch bool, baseWidth, minStretch, maxStretch int) string {
-	n := baseWidth
-	if stretch {
-		n = cachedRandN(maxStretch-minStretch) + minStretch
-	}
-
-	parts := make([]string, n)
-	for i := range parts {
-		parts[i] = s
-	}
-	return lipgloss.JoinHorizontal(lipgloss.Top, parts...)
-}
-
-// cachedRandN returns a cached random number for consistent rendering.
-// Uses a simple deterministic approach for now.
-var randCache = make(map[int]int)
-var randSeed = 0
-
-func cachedRandN(n int) int {
-	if n <= 0 {
-		return 0
-	}
-	if v, ok := randCache[n]; ok {
-		return v
-	}
-	// Simple deterministic "random" based on seed
-	randSeed = (randSeed*1103515245 + 12345) & 0x7fffffff
-	v := randSeed % n
-	randCache[n] = v
-	return v
 }

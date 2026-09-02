@@ -68,6 +68,9 @@ func (m model) View() string {
 	case viewSettings:
 		return ui.RenderSettingsView(m.width, m.height, m.settingsState, m.getStatusBannerType())
 
+	case viewConferences:
+		return ui.RenderConferencesView(m.width, m.height, m.conferencesSelectedIdx, m.conferences, m.getStatusBannerType())
+
 	case viewWorldCup:
 		switch m.wcSubView {
 		case wcSubViewGroupDetail:

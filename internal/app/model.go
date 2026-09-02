@@ -12,6 +12,7 @@ import (
 	"github.com/0xjuanma/golazo/internal/api"
 	"github.com/0xjuanma/golazo/internal/constants"
 	"github.com/0xjuanma/golazo/internal/data"
+	"github.com/0xjuanma/golazo/internal/espncfb"
 	"github.com/0xjuanma/golazo/internal/fotmob"
 	"github.com/0xjuanma/golazo/internal/notify"
 	"github.com/0xjuanma/golazo/internal/reddit"
@@ -33,6 +34,7 @@ const (
 	viewStats
 	viewSettings
 	viewWorldCup
+	viewConferences
 )
 
 // standingsCacheEntry holds a fetched standings result with a timestamp for TTL checks.
@@ -42,6 +44,21 @@ type standingsCacheEntry struct {
 	homeTeamID int
 	awayTeamID int
 	fetchedAt  time.Time
+}
+
+// statsViewData aggregates progressively-loaded match data for the stats
+// view (5 days of finished matches + today's upcoming). This is an app-level
+// view model, not a provider response type — it's built by accumulating
+// api.Match values across several fetchStatsDayData calls, so it lives here
+// rather than in any specific provider package (it used to be fotmob.StatsData,
+// which was misleading once the app could run against any api.Client).
+type statsViewData struct {
+	// AllFinished contains finished matches for all fetched days (5 days by default)
+	AllFinished []api.Match
+	// TodayFinished contains only today's finished matches (filtered from AllFinished)
+	TodayFinished []api.Match
+	// TodayUpcoming contains today's upcoming matches
+	TodayUpcoming []api.Match
 }
 
 // wcSubView represents the current sub-view within the World Cup view.
@@ -78,17 +95,18 @@ type model struct {
 	lastAwayScore       int // Track last known away score for goal notifications
 
 	// Stats data cache - stores 5 days of data, filtered client-side for Today/3d/5d views
-	statsData *fotmob.StatsData
+	statsData *statsViewData
 
 	// Progressive loading state (stats view)
-	statsDaysLoaded int // Number of days loaded so far (0-5)
-	statsTotalDays  int // Total days to load (5)
+	statsDaysLoaded    int  // Number of days loaded so far (0-5)
+	statsFetchHadError bool // Set when any day in the current fetch sequence errored; reset when a new fetch starts
+	statsTotalDays     int  // Total days to load (5)
 
 	// Progressive loading state (live view) - batch-based for parallel fetching
-	liveBatchesLoaded   int         // Number of batches loaded so far
-	liveTotalBatches    int         // Total batches to load
-	liveMatchesBuffer   []api.Match // Buffer to accumulate live matches during progressive load
-	liveUpcomingBuffer  []api.Match // Buffer to accumulate upcoming matches during progressive load
+	liveBatchesLoaded  int         // Number of batches loaded so far
+	liveTotalBatches   int         // Total batches to load
+	liveMatchesBuffer  []api.Match // Buffer to accumulate live matches during progressive load
+	liveUpcomingBuffer []api.Match // Buffer to accumulate upcoming matches during progressive load
 
 	// UI components
 	spinner          spinner.Model
@@ -125,7 +143,7 @@ type model struct {
 	newVersionAvailable bool   // Whether a new version of Golazo is available
 	appVersion          string // Current application version string
 	statsDateRange      int    // 1, 3, or 5 days (default: 1)
-	wcYear            string // World Cup season override (e.g. "2026"); "" = current
+	wcYear              string // World Cup season override (e.g. "2026"); "" = current
 
 	// Settings view state
 	settingsState *ui.SettingsState
@@ -148,6 +166,11 @@ type model struct {
 	wcTopScorers        []api.WCTopScorer
 	wcTopScorersLoading bool
 
+	// Conferences view state — a browsable list of conferences with
+	// standings on selection, replacing the World Cup (soccer) menu slot.
+	conferences            []api.League
+	conferencesSelectedIdx int
+
 	// Dialog overlay for modal dialogs
 	dialogOverlay *ui.DialogOverlay
 
@@ -155,7 +178,8 @@ type model struct {
 	standingsCache map[int]*standingsCacheEntry
 
 	// API clients
-	fotmobClient *fotmob.Client
+	client       api.Client     // Primary data source (ESPN college football)
+	fotmobClient *fotmob.Client // Soccer data source, kept only for World Cup mode
 	parser       *fotmob.LiveUpdateParser
 	redditClient *reddit.Client
 
@@ -277,6 +301,13 @@ func New(useMockData bool, debugMode bool, isDevBuild bool, newVersionAvailable 
 	wcList.FilterInput.PromptStyle = filterPromptStyle
 	wcList.FilterInput.Cursor.Style = filterCursorStyle
 
+	cfbClient := espncfb.NewClient()
+	// Leagues() is a static, in-memory table for espncfb (no network call),
+	// so fetching it synchronously at startup is safe and avoids adding an
+	// async loading state to the Conferences view for what's really just a
+	// constant list.
+	conferences, _ := cfbClient.Leagues(context.Background())
+
 	return model{
 		currentView:            viewMain,
 		matchDetailsCache:      make(map[int]*api.MatchDetails),
@@ -286,7 +317,9 @@ func New(useMockData bool, debugMode bool, isDevBuild bool, newVersionAvailable 
 		isDevBuild:             isDevBuild,
 		newVersionAvailable:    newVersionAvailable,
 		appVersion:             appVersion,
-		wcYear:               wcYear,
+		wcYear:                 wcYear,
+		client:                 cfbClient,
+		conferences:            conferences,
 		fotmobClient:           newFotmobClient(logger),
 		parser:                 fotmob.NewLiveUpdateParser(),
 		redditClient:           redditClient,
@@ -309,7 +342,7 @@ func New(useMockData bool, debugMode bool, isDevBuild bool, newVersionAvailable 
 		pendingSelection:       -1,                    // No pending selection
 		dialogOverlay:          ui.NewDialogOverlay(), // Initialize dialog overlay
 		animatedLogo:           animatedLogo,          // Initialize animated logo
-		wcGroupsList:           wcList,                 // Initialize World Cup groups list
+		wcGroupsList:           wcList,                // Initialize World Cup groups list
 	}
 }
 
@@ -369,13 +402,20 @@ func (m model) getScrollableContentLength() int {
 	// Count goals (each goal is typically 1 line + section header)
 	if len(m.matchDetails.Events) > 0 {
 		goalCount := 0
+		scoringPlayCount := 0
 		for _, event := range m.matchDetails.Events {
-			if event.Type == "goal" {
+			switch event.Type {
+			case "goal":
 				goalCount++
+			case "touchdown", "field_goal", "safety", "score":
+				scoringPlayCount++
 			}
 		}
 		if goalCount > 0 {
 			lineCount += 1 + goalCount // Section header + goals
+		}
+		if scoringPlayCount > 0 {
+			lineCount += 1 + scoringPlayCount // Section header + scoring plays
 		}
 	}
 

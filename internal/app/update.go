@@ -7,7 +7,6 @@ import (
 
 	"github.com/0xjuanma/golazo/internal/api"
 	"github.com/0xjuanma/golazo/internal/constants"
-	"github.com/0xjuanma/golazo/internal/fotmob"
 	"github.com/0xjuanma/golazo/internal/reddit"
 	"github.com/0xjuanma/golazo/internal/ui"
 	"github.com/charmbracelet/bubbles/list"
@@ -77,6 +76,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case standingsMsg:
 		return m.handleStandings(msg)
+
+	case rankingsMsg:
+		return m.handleRankings(msg)
 
 	case wcDataMsg:
 		return m.handleWCData(msg)
@@ -181,7 +183,7 @@ func (m model) handleMatchDetails(msg matchDetailsMsg) (tea.Model, tea.Cmd) {
 		if msg.err != nil {
 			m.lastError = constants.ErrorMatchDetails
 		}
-		m.debugLog("handleMatchDetails: match details is nil")
+		m.debugLog(fmt.Sprintf("handleMatchDetails: match details is nil, err=%v", msg.err))
 		return m, nil
 	}
 
@@ -379,6 +381,8 @@ func (m model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleSettingsViewKeys(msg)
 	case viewWorldCup:
 		return m.handleWorldCupKeys(msg)
+	case viewConferences:
+		return m.handleConferencesViewKeys(msg)
 	}
 
 	return m, nil
@@ -427,13 +431,27 @@ func (m model) handleLiveMatchesSelection(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			return m, fetchStandings(
-				m.fotmobClient,
+				m.client,
 				leagueID,
 				m.matchDetails.League.Name,
-				m.matchDetails.League.ParentLeagueID,
 				m.matchDetails.HomeTeam.ID,
 				m.matchDetails.AwayTeam.ID,
 			)
+		}
+		if msg.String() == "f" {
+			m.openSituationDialog()
+			return m, nil
+		}
+		if msg.String() == "p" {
+			m.openLeadersDialog()
+			return m, nil
+		}
+		if msg.String() == "w" {
+			m.openMomentumDialog()
+			return m, nil
+		}
+		if msg.String() == "n" {
+			return m, fetchRankings(m.client)
 		}
 	}
 
@@ -491,7 +509,7 @@ func (m model) handleLiveMatchesSelection(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m.loadMatchDetailsWithRefresh(m.matchDetails.ID, true)
 		}
 		m.debugLog("Forcing live list refresh (clearing page-body cache)")
-		return m, refreshLiveNow(m.fotmobClient, m.useMockData)
+		return m, refreshLiveNow(m.client, m.useMockData)
 	}
 
 	return m, listCmd
@@ -545,17 +563,16 @@ func (m model) handleStatsSelection(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.statsRightPanelFocused = false
 			return m, nil
 		case "f":
-			// Open formations dialog
-			m.openFormationsDialog()
+			// Open situation dialog (down/distance, field position)
+			m.openSituationDialog()
 			return m, nil
 		case "s":
 			// Fetch standings and open dialog
 			if m.matchDetails != nil {
 				return m, fetchStandings(
-					m.fotmobClient,
+					m.client,
 					m.matchDetails.League.ID,
 					m.matchDetails.League.Name,
-					m.matchDetails.League.ParentLeagueID,
 					m.matchDetails.HomeTeam.ID,
 					m.matchDetails.AwayTeam.ID,
 				)
@@ -565,6 +582,17 @@ func (m model) handleStatsSelection(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			// Open full statistics dialog
 			m.openStatisticsDialog()
 			return m, nil
+		case "p":
+			// Open player leaders dialog
+			m.openLeadersDialog()
+			return m, nil
+		case "w":
+			// Open win-probability (momentum) dialog
+			m.openMomentumDialog()
+			return m, nil
+		case "n":
+			// Fetch and open rankings dialog
+			return m, fetchRankings(m.client)
 		}
 	}
 
@@ -642,7 +670,7 @@ func (m model) handleLiveMatches(msg liveMatchesMsg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	// Schedule the next refresh (5-min timer)
-	cmds = append(cmds, scheduleLiveRefresh(m.fotmobClient, m.useMockData))
+	cmds = append(cmds, scheduleLiveRefresh(m.client, m.useMockData))
 
 	if len(msg.matches) == 0 {
 		m.liveViewLoading = false
@@ -689,7 +717,7 @@ func (m model) handleLiveRefresh(msg liveRefreshMsg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	// Schedule the next refresh
-	cmds = append(cmds, scheduleLiveRefresh(m.fotmobClient, m.useMockData))
+	cmds = append(cmds, scheduleLiveRefresh(m.client, m.useMockData))
 	// Update upcoming matches
 	upcomingDisplay := make([]ui.MatchDisplay, 0, len(msg.upcoming))
 	for _, match := range msg.upcoming {
@@ -801,19 +829,22 @@ func (m model) handleLiveBatchData(msg liveBatchDataMsg) (tea.Model, tea.Cmd) {
 		m.liveViewLoading = false
 		m.loading = false
 
-		if len(m.liveMatchesBuffer) == 0 && len(m.liveUpcomingBuffer) == 0 {
+		// Empty is a normal result for college football most days of the
+		// week (games cluster on Thu-Sat) — only flag it as an error when
+		// the fetch actually failed.
+		if msg.err != nil && len(m.liveMatchesBuffer) == 0 && len(m.liveUpcomingBuffer) == 0 {
 			m.lastError = constants.ErrorLoadFailed
 		}
 
 		// Schedule periodic refresh
-		cmds = append(cmds, scheduleLiveRefresh(m.fotmobClient, m.useMockData))
+		cmds = append(cmds, scheduleLiveRefresh(m.client, m.useMockData))
 
 		return m, tea.Batch(cmds...)
 	}
 
 	// Otherwise, fetch next batch
 	nextBatchIndex := msg.batchIndex + 1
-	cmds = append(cmds, fetchLiveBatchData(m.loadCtx, m.fotmobClient, m.useMockData, nextBatchIndex))
+	cmds = append(cmds, fetchLiveBatchData(m.loadCtx, m.client, m.useMockData, nextBatchIndex))
 
 	return m, tea.Batch(cmds...)
 }
@@ -889,7 +920,7 @@ func (m model) handleStatsDayData(msg statsDayDataMsg) (tea.Model, tea.Cmd) {
 
 	// Initialize statsData if nil (first day)
 	if m.statsData == nil {
-		m.statsData = &fotmob.StatsData{
+		m.statsData = &statsViewData{
 			AllFinished:   []api.Match{},
 			TodayFinished: []api.Match{},
 			TodayUpcoming: []api.Match{},
@@ -899,6 +930,9 @@ func (m model) handleStatsDayData(msg statsDayDataMsg) (tea.Model, tea.Cmd) {
 	// Clear error when data arrives successfully
 	if len(msg.finished) > 0 || len(msg.upcoming) > 0 {
 		m.lastError = ""
+	}
+	if msg.err != nil {
+		m.statsFetchHadError = true
 	}
 
 	// Accumulate finished matches (deduplicate by match ID)
@@ -984,7 +1018,9 @@ func (m model) handleStatsDayData(msg statsDayDataMsg) (tea.Model, tea.Cmd) {
 		m.statsViewLoading = false
 		m.loading = false
 
-		if len(m.statsData.AllFinished) == 0 && len(m.statsData.TodayUpcoming) == 0 {
+		// Empty is a normal result for college football most days of the
+		// week — only flag it as an error when a fetch actually failed.
+		if m.statsFetchHadError && len(m.statsData.AllFinished) == 0 && len(m.statsData.TodayUpcoming) == 0 {
 			m.lastError = constants.ErrorLoadFailed
 		}
 
@@ -993,7 +1029,7 @@ func (m model) handleStatsDayData(msg statsDayDataMsg) (tea.Model, tea.Cmd) {
 
 	// Otherwise, fetch next day
 	nextDayIndex := msg.dayIndex + 1
-	cmds = append(cmds, fetchStatsDayData(m.loadCtx, m.fotmobClient, m.useMockData, nextDayIndex, m.statsTotalDays))
+	cmds = append(cmds, fetchStatsDayData(m.loadCtx, m.client, m.useMockData, nextDayIndex, m.statsTotalDays))
 
 	return m, tea.Batch(cmds...)
 }
@@ -1178,7 +1214,7 @@ func (m model) handlePollTick(msg pollTickMsg) (tea.Model, tea.Cmd) {
 	// Start the actual API call, spinner animation, and 1s display timer
 	// Also check for any new goals that might have been scored since last poll
 	return m, tea.Batch(
-		fetchPollMatchDetails(m.fotmobClient, msg.matchID, m.useMockData),
+		fetchPollMatchDetails(m.client, msg.matchID, m.useMockData),
 		schedulePollSpinnerHide(), // Hide spinner after 0.5 seconds
 	)
 }
@@ -1432,6 +1468,21 @@ func (m model) handleStandings(msg standingsMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// handleRankings processes ranking-poll data and opens the rankings dialog.
+func (m model) handleRankings(msg rankingsMsg) (tea.Model, tea.Cmd) {
+	if msg.err != nil || len(msg.polls) == 0 {
+		m.lastError = constants.ErrorNoRankings
+		return m, nil
+	}
+	if m.dialogOverlay == nil {
+		return m, nil
+	}
+
+	dialog := ui.NewRankingsDialog(msg.polls)
+	m.dialogOverlay.OpenDialog(dialog)
+	return m, nil
+}
+
 // openStatisticsDialog opens the full statistics dialog for the current match.
 func (m *model) openStatisticsDialog() {
 	if m.matchDetails == nil || m.dialogOverlay == nil {
@@ -1453,12 +1504,107 @@ func (m *model) openStatisticsDialog() {
 		awayTeam = m.matchDetails.AwayTeam.Name
 	}
 
+	homeScore, awayScore := 0, 0
+	if m.matchDetails.HomeScore != nil {
+		homeScore = *m.matchDetails.HomeScore
+	}
+	if m.matchDetails.AwayScore != nil {
+		awayScore = *m.matchDetails.AwayScore
+	}
+
 	dialog := ui.NewStatisticsDialog(
 		homeTeam,
 		awayTeam,
-		*m.matchDetails.HomeScore,
-		*m.matchDetails.AwayScore,
+		homeScore,
+		awayScore,
 		m.matchDetails.Statistics,
 	)
+	m.dialogOverlay.OpenDialog(dialog)
+}
+
+// openSituationDialog opens the down-and-distance/field-position dialog for
+// the current match (American football; replaces Formations, which has no
+// equivalent in a sport without formations).
+func (m *model) openSituationDialog() {
+	if m.matchDetails == nil || m.dialogOverlay == nil {
+		return
+	}
+
+	homeTeam := m.matchDetails.HomeTeam.ShortName
+	if homeTeam == "" {
+		homeTeam = m.matchDetails.HomeTeam.Name
+	}
+	awayTeam := m.matchDetails.AwayTeam.ShortName
+	if awayTeam == "" {
+		awayTeam = m.matchDetails.AwayTeam.Name
+	}
+
+	homeScore, awayScore := 0, 0
+	if m.matchDetails.HomeScore != nil {
+		homeScore = *m.matchDetails.HomeScore
+	}
+	if m.matchDetails.AwayScore != nil {
+		awayScore = *m.matchDetails.AwayScore
+	}
+
+	dialog := ui.NewSituationDialog(
+		homeTeam,
+		awayTeam,
+		homeScore,
+		awayScore,
+		m.matchDetails.HomeTeam.ID,
+		m.matchDetails.AwayTeam.ID,
+		m.matchDetails.Situation,
+	)
+	m.dialogOverlay.OpenDialog(dialog)
+}
+
+// openLeadersDialog opens the player statistical leaders dialog for the
+// current match (American football; replaces Top Scorers, which assumes a
+// single soccer-style leaderboard rather than football's role-based
+// categories).
+func (m *model) openLeadersDialog() {
+	if m.matchDetails == nil || m.dialogOverlay == nil {
+		return
+	}
+	if len(m.matchDetails.Leaders) == 0 {
+		m.lastError = constants.ErrorNoLeaders
+		return
+	}
+
+	homeTeam := m.matchDetails.HomeTeam.ShortName
+	if homeTeam == "" {
+		homeTeam = m.matchDetails.HomeTeam.Name
+	}
+	awayTeam := m.matchDetails.AwayTeam.ShortName
+	if awayTeam == "" {
+		awayTeam = m.matchDetails.AwayTeam.Name
+	}
+
+	dialog := ui.NewLeadersDialog(homeTeam, awayTeam, m.matchDetails.Leaders)
+	m.dialogOverlay.OpenDialog(dialog)
+}
+
+// openMomentumDialog opens the win-probability dialog for the current match
+// (American football; no soccer equivalent exists in golazo today).
+func (m *model) openMomentumDialog() {
+	if m.matchDetails == nil || m.dialogOverlay == nil {
+		return
+	}
+	if len(m.matchDetails.Momentum) == 0 {
+		m.lastError = constants.ErrorNoMomentum
+		return
+	}
+
+	homeTeam := m.matchDetails.HomeTeam.ShortName
+	if homeTeam == "" {
+		homeTeam = m.matchDetails.HomeTeam.Name
+	}
+	awayTeam := m.matchDetails.AwayTeam.ShortName
+	if awayTeam == "" {
+		awayTeam = m.matchDetails.AwayTeam.Name
+	}
+
+	dialog := ui.NewMomentumDialog(homeTeam, awayTeam, m.matchDetails.Momentum)
 	m.dialogOverlay.OpenDialog(dialog)
 }

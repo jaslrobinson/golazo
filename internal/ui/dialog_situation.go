@@ -60,7 +60,11 @@ func (d *SituationDialog) View(width, height int) string {
 }
 
 func (d *SituationDialog) renderContent(width int) string {
-	if d.situation == nil {
+	// Down==0 means no real down-and-distance was ever set (e.g. a provider
+	// attached only a last-play fallback, or a zero-valued Situation slipped
+	// through) — render the same empty state as a nil Situation rather than
+	// a misleading "1st & 0" on the opponent's goal line.
+	if d.situation == nil || d.situation.Down == 0 {
 		return dialogDimStyle.Render(constants.ErrorNoSituation)
 	}
 	s := d.situation

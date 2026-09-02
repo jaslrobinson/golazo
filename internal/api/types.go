@@ -46,18 +46,25 @@ type Match struct {
 	PageURL   string      `json:"page_url,omitempty"` // FotMob match page slug (e.g., "/matches/team-vs-team/abc123")
 }
 
-// MatchEvent represents an event in a match (goal, card, substitution, etc.)
+// MatchEvent represents an event in a match (goal, card, substitution, a
+// football scoring play, etc.)
 type MatchEvent struct {
 	ID            int       `json:"id"`
 	Minute        int       `json:"minute"`                   // Base minute (e.g., 45)
-	DisplayMinute string    `json:"display_minute,omitempty"` // Formatted minute with stoppage time (e.g., "45+2'")
-	Type          string    `json:"type"`                     // "goal", "card", "substitution", etc.
+	DisplayMinute string    `json:"display_minute,omitempty"` // Formatted minute with stoppage time (e.g., "45+2'"); football providers use this for "Q1 8:55" instead
+	Type          string    `json:"type"`                     // "goal", "card", "substitution", "touchdown", "field_goal", "safety", etc.
 	Team          Team      `json:"team"`
 	Player        *string   `json:"player,omitempty"`
 	Assist        *string   `json:"assist,omitempty"`
 	EventType     *string   `json:"event_type,omitempty"` // "yellow", "red", "in", "out", etc.
 	OwnGoal       *bool     `json:"own_goal,omitempty"`   // Indicates if this is an own goal
 	Timestamp     time.Time `json:"timestamp"`
+
+	// Description is a full human-readable play description (e.g. "Jayden
+	// Maiava 1 Yd Run (Caden Chittenden Kick)"). Football scoring plays don't
+	// decompose cleanly into Player/Assist, so providers without a clean
+	// scorer field populate this instead of Player.
+	Description string `json:"description,omitempty"`
 }
 
 // MatchStatistic represents a single match statistic (possession, shots, etc.)
