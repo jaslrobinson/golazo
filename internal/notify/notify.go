@@ -6,14 +6,32 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
-	"github.com/0xjuanma/golazo/internal/api"
-	"github.com/0xjuanma/golazo/internal/assets"
-	"github.com/0xjuanma/golazo/internal/constants"
-	"github.com/0xjuanma/golazo/internal/data"
 	"github.com/gen2brain/beeep"
+	"github.com/jaslrobinson/golazo/internal/api"
+	"github.com/jaslrobinson/golazo/internal/assets"
+	"github.com/jaslrobinson/golazo/internal/constants"
+	"github.com/jaslrobinson/golazo/internal/data"
 )
+
+// notificationTitle returns the scoring-type-appropriate notification title:
+// football's touchdown/field_goal/safety (see espncfb/map.go) each get their
+// own title, everything else (soccer's "goal", or an unrecognized type)
+// falls back to constants.NotificationTitleGoal.
+func notificationTitle(eventType string) string {
+	switch strings.ToLower(eventType) {
+	case "touchdown":
+		return "🏈 TOUCHDOWN!"
+	case "field_goal":
+		return "🏈 FIELD GOAL!"
+	case "safety":
+		return "🏈 SAFETY!"
+	default:
+		return constants.NotificationTitleGoal
+	}
+}
 
 var (
 	iconPath     string
@@ -85,7 +103,7 @@ func (n *DesktopNotifier) Goal(event api.MatchEvent, homeTeam, awayTeam api.Team
 	_, _ = os.Stderr.WriteString("\a")
 
 	// Build notification content
-	title := constants.NotificationTitleGoal
+	title := notificationTitle(event.Type)
 	message := formatGoalMessage(event, homeTeam, awayTeam, homeScore, awayScore)
 
 	// Send notification via beeep (cross-platform)
@@ -96,9 +114,27 @@ func (n *DesktopNotifier) Goal(event api.MatchEvent, homeTeam, awayTeam api.Team
 	return nil
 }
 
-// formatGoalMessage creates the notification message for a goal.
-// Format: "Scorer (Team) 34' | Home 2-1 Away"
+// formatGoalMessage creates the notification message for a score.
+// Football providers populate Description with the full play text instead
+// of a clean Player/Assist split (see api.MatchEvent), so that takes
+// priority when present. Format: "Description [Q1 8:55]\nHome 7 - 0 Away"
+// for football, "Scorer (Assist) 34' [Team]\nHome 2-1 Away" for soccer.
 func formatGoalMessage(event api.MatchEvent, homeTeam, awayTeam api.Team, homeScore, awayScore int) string {
+	if event.Description != "" {
+		clock := event.DisplayMinute
+		if clock == "" {
+			clock = fmt.Sprintf("%d'", event.Minute)
+		}
+		return fmt.Sprintf("%s [%s]\n%s %d - %d %s",
+			event.Description,
+			clock,
+			homeTeam.ShortName,
+			homeScore,
+			awayScore,
+			awayTeam.ShortName,
+		)
+	}
+
 	scorer := "Unknown"
 	if event.Player != nil {
 		scorer = *event.Player

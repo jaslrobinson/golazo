@@ -5,13 +5,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/0xjuanma/golazo/internal/api"
-	"github.com/0xjuanma/golazo/internal/constants"
-	"github.com/0xjuanma/golazo/internal/reddit"
-	"github.com/0xjuanma/golazo/internal/ui"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/jaslrobinson/golazo/internal/api"
+	"github.com/jaslrobinson/golazo/internal/constants"
+	"github.com/jaslrobinson/golazo/internal/reddit"
+	"github.com/jaslrobinson/golazo/internal/ui"
 )
 
 // Update handles all incoming messages and updates the model accordingly.
@@ -1256,7 +1256,20 @@ func (m model) handleFilterMatches(msg list.FilterMatchesMsg) (tea.Model, tea.Cm
 	return m, cmd
 }
 
-// notifyNewGoals sends desktop notifications when a goal is scored.
+// isScoringEvent reports whether an api.MatchEvent.Type represents a score
+// increase worth notifying on - soccer's "goal" plus ESPN's football scoring
+// types ("touchdown", "field_goal", "safety"; see espncfb/map.go).
+func isScoringEvent(eventType string) bool {
+	switch strings.ToLower(eventType) {
+	case "goal", "touchdown", "field_goal", "safety":
+		return true
+	default:
+		return false
+	}
+}
+
+// notifyNewGoals sends desktop notifications when a team scores (a soccer
+// goal or a football touchdown/field goal/safety).
 // Uses score-based detection (more reliable than event ID comparison).
 // Only called during poll refreshes when we have previous score data.
 func (m *model) notifyNewGoals(details *api.MatchDetails) {
@@ -1286,7 +1299,7 @@ func (m *model) notifyNewGoals(details *api.MatchDetails) {
 	var goalEvent *api.MatchEvent
 	for i := len(details.Events) - 1; i >= 0; i-- {
 		event := details.Events[i]
-		if strings.ToLower(event.Type) == "goal" {
+		if isScoringEvent(event.Type) {
 			// Check if this goal matches the team that scored
 			if homeGoalScored && event.Team.ID == details.HomeTeam.ID {
 				goalEvent = &event
