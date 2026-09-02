@@ -3,5 +3,20 @@
     "espn_team_id": 213,
     "name": "Penn State Nittany Lions",
     "image_url": "https://cdn.shopify.com/s/files/1/2458/4861/files/PennStateNittanyLionsRiddellSpeedReplica01_7e371291-6085-4dc8-8716-a905f9c77236.jpg?v=1748088837"
+  },
+  {
+    "espn_team_id": 333,
+    "name": "Alabama Crimson Tide",
+    "image_url": "https://cdn.shopify.com/s/files/1/2458/4861/files/AlabamaCrimsonTideRiddellSpeedReplica1801.webp?v=1748033073"
+  },
+  {
+    "espn_team_id": 2483,
+    "name": "Oregon Ducks",
+    "image_url": "https://cdn.shopify.com/s/files/1/2458/4861/files/OregonDucksSpeedAuthenticAppleGreen01.webp?v=1748087987"
+  },
+  {
+    "espn_team_id": 194,
+    "name": "Ohio State Buckeyes",
+    "image_url": "https://cdn.shopify.com/s/files/1/2458/4861/files/OhioStateBuckeyesRiddellSpeedReplicaHelmet01.jpg?v=1747939571"
   }
 ]

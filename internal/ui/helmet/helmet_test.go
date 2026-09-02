@@ -108,3 +108,20 @@ func TestRender_SeedTeamReturnsNonEmptyArt(t *testing.T) {
 		t.Fatalf("Render(%d) produced %d lines, want 20 (40 source rows / 2)", pennState, lines)
 	}
 }
+
+func TestRender_AllSeededTeamsProduceNonEmptyArt(t *testing.T) {
+	seeded := []struct {
+		id   int
+		name string
+	}{
+		{213, "Penn State"},
+		{333, "Alabama"},
+		{2483, "Oregon"},
+		{194, "Ohio State"},
+	}
+	for _, tc := range seeded {
+		if got := Render(tc.id); got == "" {
+			t.Errorf("Render(%d) (%s) = empty, want curated art", tc.id, tc.name)
+		}
+	}
+}
