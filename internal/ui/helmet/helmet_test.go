@@ -104,8 +104,8 @@ func TestRender_SeedTeamReturnsNonEmptyArt(t *testing.T) {
 	if got == "" {
 		t.Fatalf("Render(%d) = empty, want curated art for the seeded Penn State asset", pennState)
 	}
-	if lines := strings.Count(got, "\n") + 1; lines != 20 {
-		t.Fatalf("Render(%d) produced %d lines, want 20 (40 source rows / 2)", pennState, lines)
+	if lines := strings.Count(got, "\n") + 1; lines != 10 {
+		t.Fatalf("Render(%d) produced %d lines, want 10 (20 source rows / 2)", pennState, lines)
 	}
 }
 

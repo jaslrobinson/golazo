@@ -23,8 +23,8 @@ from rembg import remove
 
 MANIFEST = Path(__file__).parent / "manifest.json"
 OUT_DIR = Path(__file__).parent.parent.parent / "internal" / "assets" / "helmets"
-GRID_COLS = 30
-GRID_ROWS = 40  # 2 source rows per terminal row (half-block technique)
+GRID_COLS = 16
+GRID_ROWS = 20  # 2 source rows per terminal row (half-block technique)
 ALPHA_THRESHOLD = 40
 CROP_PADDING = 8
 
