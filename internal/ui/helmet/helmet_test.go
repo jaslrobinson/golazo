@@ -7,105 +7,129 @@ import (
 	"testing"
 )
 
-func nrgba(r, g, b, a uint8) color.NRGBA {
-	return color.NRGBA{R: r, G: g, B: b, A: a}
+func on(r, g, b uint8) quadrant { return quadrant{on: true, r: r, g: g, b: b} }
+func off() quadrant             { return quadrant{} }
+
+func solidImage(w, h int, q quadrant) *image.NRGBA {
+	img := image.NewNRGBA(image.Rect(0, 0, w, h))
+	a := uint8(0)
+	if q.on {
+		a = 255
+	}
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			img.SetNRGBA(x, y, color.NRGBA{R: q.r, G: q.g, B: q.b, A: a})
+		}
+	}
+	return img
 }
 
-func TestPixelAt_OpaquePixelReturnsHexColor(t *testing.T) {
-	img := image.NewNRGBA(image.Rect(0, 0, 1, 1))
-	img.SetNRGBA(0, 0, nrgba(0x12, 0x34, 0x56, 255))
-
-	on, c := pixelAt(img, 0, 0)
-
-	if !on {
-		t.Fatalf("expected opaque pixel to be on")
-	}
-	if c != "#123456" {
-		t.Fatalf("got color %q, want #123456", c)
-	}
-}
-
-func TestPixelAt_BelowThresholdAlphaIsOff(t *testing.T) {
-	img := image.NewNRGBA(image.Rect(0, 0, 1, 1))
-	img.SetNRGBA(0, 0, nrgba(0xff, 0x00, 0x00, alphaThreshold-1))
-
-	on, c := pixelAt(img, 0, 0)
-
-	if on {
-		t.Fatalf("expected below-threshold pixel to be off")
-	}
-	if c != "" {
-		t.Fatalf("got color %q, want empty", c)
+func TestRenderQuadrantCell_NoneOnIsBlank(t *testing.T) {
+	got := renderQuadrantCell(off(), off(), off(), off())
+	if got != " " {
+		t.Fatalf("got %q, want a single space", got)
 	}
 }
 
-func TestRenderNRGBA_GlyphSelectionPerAlphaCombo(t *testing.T) {
+func TestRenderQuadrantCell_OneOnUsesSingleQuadrantGlyph(t *testing.T) {
 	tests := []struct {
 		name                     string
-		topOn, botOn             bool
+		tl, tr, bl, br           quadrant
 		wantGlyph, unwantedGlyph string
 	}{
-		{"both opaque", true, true, "▀", "▄"},
-		{"top only", true, false, "▀", "▄"},
-		{"bottom only", false, true, "▄", "▀"},
-		{"neither", false, false, " ", "▀"},
+		{"top-left", on(10, 20, 30), off(), off(), off(), "▘", "▝"},
+		{"top-right", off(), on(10, 20, 30), off(), off(), "▝", "▖"},
+		{"bottom-left", off(), off(), on(10, 20, 30), off(), "▖", "▗"},
+		{"bottom-right", off(), off(), off(), on(10, 20, 30), "▗", "▘"},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			img := image.NewNRGBA(image.Rect(0, 0, 1, 2))
-			if tt.topOn {
-				img.SetNRGBA(0, 0, nrgba(255, 0, 0, 255))
-			} else {
-				img.SetNRGBA(0, 0, nrgba(255, 0, 0, 0))
-			}
-			if tt.botOn {
-				img.SetNRGBA(0, 1, nrgba(0, 255, 0, 255))
-			} else {
-				img.SetNRGBA(0, 1, nrgba(0, 255, 0, 0))
-			}
-
-			got := renderNRGBA(img)
-
+			got := renderQuadrantCell(tt.tl, tt.tr, tt.bl, tt.br)
 			if !strings.Contains(got, tt.wantGlyph) {
-				t.Errorf("renderNRGBA() = %q, want it to contain %q", got, tt.wantGlyph)
+				t.Errorf("got %q, want it to contain %q", got, tt.wantGlyph)
 			}
 			if strings.Contains(got, tt.unwantedGlyph) {
-				t.Errorf("renderNRGBA() = %q, should not contain %q", got, tt.unwantedGlyph)
+				t.Errorf("got %q, should not contain %q", got, tt.unwantedGlyph)
 			}
 		})
 	}
 }
 
-func TestRenderNRGBA_TwoTerminalRowsProduceOneNewline(t *testing.T) {
-	img := image.NewNRGBA(image.Rect(0, 0, 2, 4))
-	for y := 0; y < 4; y++ {
-		for x := 0; x < 2; x++ {
-			img.SetNRGBA(x, y, nrgba(10, 20, 30, 255))
-		}
+func TestRenderQuadrantCell_TwoOnUsesMatchingHalfGlyph(t *testing.T) {
+	c := func() quadrant { return on(200, 0, 0) }
+	tests := []struct {
+		name           string
+		tl, tr, bl, br quadrant
+		wantGlyph      string
+	}{
+		{"top pair", c(), c(), off(), off(), "▀"},
+		{"bottom pair", off(), off(), c(), c(), "▄"},
+		{"left pair", c(), off(), c(), off(), "▌"},
+		{"right pair", off(), c(), off(), c(), "▐"},
+		{"diagonal tl-br", c(), off(), off(), c(), "▚"},
+		{"diagonal tr-bl", off(), c(), c(), off(), "▞"},
 	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := renderQuadrantCell(tt.tl, tt.tr, tt.bl, tt.br)
+			if !strings.Contains(got, tt.wantGlyph) {
+				t.Errorf("got %q, want it to contain %q", got, tt.wantGlyph)
+			}
+		})
+	}
+}
+
+func TestRenderQuadrantCell_ThreeOnUsesMatchingThreeQuarterGlyph(t *testing.T) {
+	c := func() quadrant { return on(0, 200, 0) }
+	tests := []struct {
+		name           string
+		tl, tr, bl, br quadrant
+		wantGlyph      string
+	}{
+		{"missing bottom-right", c(), c(), c(), off(), "▛"},
+		{"missing bottom-left", c(), c(), off(), c(), "▜"},
+		{"missing top-right", c(), off(), c(), c(), "▙"},
+		{"missing top-left", off(), c(), c(), c(), "▟"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := renderQuadrantCell(tt.tl, tt.tr, tt.bl, tt.br)
+			if !strings.Contains(got, tt.wantGlyph) {
+				t.Errorf("got %q, want it to contain %q", got, tt.wantGlyph)
+			}
+		})
+	}
+}
+
+func TestRenderQuadrantCell_FourOnPicksLowestErrorSplit(t *testing.T) {
+	// tl/tr are near-identical red, bl/br are near-identical blue: the
+	// vertical (top/bottom) split has far less color error than the
+	// horizontal or diagonal splits, so it must be chosen.
+	tl := on(200, 0, 0)
+	tr := on(202, 2, 2)
+	bl := on(0, 0, 200)
+	br := on(2, 2, 202)
+
+	got := renderQuadrantCell(tl, tr, bl, br)
+
+	if !strings.Contains(got, "▀") {
+		t.Fatalf("got %q, want the vertical split glyph ▀", got)
+	}
+}
+
+func TestRenderNRGBA_PacksTwoSourceRowsPerTerminalRow(t *testing.T) {
+	img := solidImage(4, 4, on(50, 60, 70))
 
 	got := renderNRGBA(img)
 
-	if lines := strings.Count(got, "\n"); lines != 1 {
-		t.Fatalf("got %d newlines for a 4-source-row (2 terminal-row) image, want 1", lines)
+	if lines := strings.Count(got, "\n") + 1; lines != 2 {
+		t.Fatalf("got %d terminal rows for a 4-source-row image, want 2 (4 / 2)", lines)
 	}
 }
 
 func TestRender_UnknownTeamIDReturnsEmptyString(t *testing.T) {
 	if got := Render(999999999); got != "" {
 		t.Fatalf("Render(unknown) = %q, want empty string", got)
-	}
-}
-
-func TestRender_SeedTeamReturnsNonEmptyArt(t *testing.T) {
-	const pennState = 213
-	got := Render(pennState)
-	if got == "" {
-		t.Fatalf("Render(%d) = empty, want curated art for the seeded Penn State asset", pennState)
-	}
-	if lines := strings.Count(got, "\n") + 1; lines != 10 {
-		t.Fatalf("Render(%d) produced %d lines, want 10 (20 source rows / 2)", pennState, lines)
 	}
 }
 

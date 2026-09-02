@@ -1,8 +1,11 @@
 // Package helmet renders curated team helmet artwork as colored terminal
-// ASCII art, using the half-block (▀) technique from internal/ui/worldcup's
-// pixel flags, extended to support a transparent background so only the
-// helmet silhouette renders — everything outside the cutout is left blank
-// so the terminal's own background shows through.
+// ASCII art. Each terminal cell packs a full 2x2 block of source pixels
+// using Unicode quadrant-block characters (▘▝▖▗▀▄▌▐▚▞▛▜▙▟) rather than the
+// simpler top/bottom half-block technique in internal/ui/worldcup — this
+// roughly doubles effective resolution per terminal cell, letting the art
+// occupy a smaller on-screen footprint at the same level of detail.
+// Transparent quadrants render as blank space so the terminal's own
+// background shows through.
 package helmet
 
 import (
@@ -74,39 +77,138 @@ func toNRGBA(img image.Image) *image.NRGBA {
 }
 
 // renderNRGBA converts a background-removed helmet image into colored
-// half-block terminal art. Each terminal row packs two source pixel rows:
-// both opaque renders a full block with the top pixel as foreground and the
-// bottom as background; only one opaque renders a half-block in that
-// pixel's color; neither renders a blank space so the terminal's own
-// background shows through.
+// quadrant-block terminal art. Each terminal cell packs a 2x2 block of
+// source pixels (top-left, top-right, bottom-left, bottom-right); see
+// renderQuadrantCell for how opacity and color combine into a glyph.
 func renderNRGBA(img *image.NRGBA) string {
 	bounds := img.Bounds()
 	var b strings.Builder
 	for y := bounds.Min.Y; y+1 < bounds.Max.Y; y += 2 {
-		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			topOn, tc := pixelAt(img, x, y)
-			botOn, bc := pixelAt(img, x, y+1)
-
-			switch {
-			case topOn && botOn:
-				b.WriteString(lipgloss.NewStyle().SetString("▀").Foreground(tc).Background(bc).String())
-			case topOn:
-				b.WriteString(lipgloss.NewStyle().SetString("▀").Foreground(tc).String())
-			case botOn:
-				b.WriteString(lipgloss.NewStyle().SetString("▄").Foreground(bc).String())
-			default:
-				b.WriteString(" ")
-			}
+		for x := bounds.Min.X; x+1 < bounds.Max.X; x += 2 {
+			tl := quadrantAt(img, x, y)
+			tr := quadrantAt(img, x+1, y)
+			bl := quadrantAt(img, x, y+1)
+			br := quadrantAt(img, x+1, y+1)
+			b.WriteString(renderQuadrantCell(tl, tr, bl, br))
 		}
 		b.WriteString("\n")
 	}
 	return strings.TrimRight(b.String(), "\n")
 }
 
-func pixelAt(img *image.NRGBA, x, y int) (bool, lipgloss.Color) {
+// quadrant is one of the four sub-pixels packed into a terminal cell.
+type quadrant struct {
+	on      bool
+	r, g, b uint8
+}
+
+func quadrantAt(img *image.NRGBA, x, y int) quadrant {
 	c := img.NRGBAAt(x, y)
 	if c.A < alphaThreshold {
-		return false, ""
+		return quadrant{}
 	}
-	return true, lipgloss.Color(fmt.Sprintf("#%02x%02x%02x", c.R, c.G, c.B))
+	return quadrant{on: true, r: c.R, g: c.G, b: c.B}
+}
+
+// renderQuadrantCell picks the Unicode quadrant-block glyph matching which
+// of the four sub-pixels are opaque, and the foreground/background colors
+// to render them in:
+//   - 0 opaque: a blank space (terminal background shows through).
+//   - 1 or 3 opaque: a single-color glyph (▘▝▖▗ or ▛▜▙▟) in the average of
+//     the opaque sub-pixels' colors — the transparent ones show through.
+//   - 2 opaque: a half-block glyph (▀▄▌▐▚▞) matching exactly which pair is
+//     on, colored by their average — the other two are fully transparent,
+//     not a second color, so there's nothing to approximate.
+//   - 4 opaque: no sub-pixel can show through, so this is the one case that
+//     needs a real two-color approximation. Each of the three ways to split
+//     the four into two pairs (top/bottom, left/right, the two diagonals)
+//     is scored by how different the colors within each pair are; the
+//     lowest-error split is rendered as that pair's two-color glyph.
+func renderQuadrantCell(tl, tr, bl, br quadrant) string {
+	on := 0
+	for _, q := range [4]quadrant{tl, tr, bl, br} {
+		if q.on {
+			on++
+		}
+	}
+
+	style := lipgloss.NewStyle()
+	switch on {
+	case 0:
+		return " "
+	case 1:
+		switch {
+		case tl.on:
+			return style.SetString("▘").Foreground(solidColor(tl)).String()
+		case tr.on:
+			return style.SetString("▝").Foreground(solidColor(tr)).String()
+		case bl.on:
+			return style.SetString("▖").Foreground(solidColor(bl)).String()
+		default:
+			return style.SetString("▗").Foreground(solidColor(br)).String()
+		}
+	case 2:
+		switch {
+		case tl.on && tr.on:
+			return style.SetString("▀").Foreground(avgColor(tl, tr)).String()
+		case bl.on && br.on:
+			return style.SetString("▄").Foreground(avgColor(bl, br)).String()
+		case tl.on && bl.on:
+			return style.SetString("▌").Foreground(avgColor(tl, bl)).String()
+		case tr.on && br.on:
+			return style.SetString("▐").Foreground(avgColor(tr, br)).String()
+		case tl.on && br.on:
+			return style.SetString("▚").Foreground(avgColor(tl, br)).String()
+		default: // tr && bl
+			return style.SetString("▞").Foreground(avgColor(tr, bl)).String()
+		}
+	case 3:
+		switch {
+		case !br.on:
+			return style.SetString("▛").Foreground(avg3Color(tl, tr, bl)).String()
+		case !bl.on:
+			return style.SetString("▜").Foreground(avg3Color(tl, tr, br)).String()
+		case !tr.on:
+			return style.SetString("▙").Foreground(avg3Color(tl, bl, br)).String()
+		default: // !tl.on
+			return style.SetString("▟").Foreground(avg3Color(tr, bl, br)).String()
+		}
+	default: // 4
+		vertErr := colorDistSq(tl, tr) + colorDistSq(bl, br)
+		horizErr := colorDistSq(tl, bl) + colorDistSq(tr, br)
+		diagErr := colorDistSq(tl, br) + colorDistSq(tr, bl)
+		switch {
+		case vertErr <= horizErr && vertErr <= diagErr:
+			return style.SetString("▀").Foreground(avgColor(tl, tr)).Background(avgColor(bl, br)).String()
+		case horizErr <= diagErr:
+			return style.SetString("▌").Foreground(avgColor(tl, bl)).Background(avgColor(tr, br)).String()
+		default:
+			return style.SetString("▚").Foreground(avgColor(tl, br)).Background(avgColor(tr, bl)).String()
+		}
+	}
+}
+
+func solidColor(q quadrant) lipgloss.Color {
+	return lipgloss.Color(fmt.Sprintf("#%02x%02x%02x", q.r, q.g, q.b))
+}
+
+func avgColor(a, b quadrant) lipgloss.Color {
+	r := (uint16(a.r) + uint16(b.r) + 1) / 2
+	g := (uint16(a.g) + uint16(b.g) + 1) / 2
+	bl := (uint16(a.b) + uint16(b.b) + 1) / 2
+	return lipgloss.Color(fmt.Sprintf("#%02x%02x%02x", r, g, bl))
+}
+
+func avg3Color(a, b, c quadrant) lipgloss.Color {
+	r := (uint16(a.r) + uint16(b.r) + uint16(c.r)) / 3
+	g := (uint16(a.g) + uint16(b.g) + uint16(c.g)) / 3
+	bl := (uint16(a.b) + uint16(b.b) + uint16(c.b)) / 3
+	return lipgloss.Color(fmt.Sprintf("#%02x%02x%02x", r, g, bl))
+}
+
+func colorDistSq(a, b quadrant) int {
+	dr := int(a.r) - int(b.r)
+	dg := int(a.g) - int(b.g)
+	db := int(a.b) - int(b.b)
+	return dr*dr + dg*dg + db*db
 }

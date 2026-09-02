@@ -124,11 +124,11 @@ func TestRenderMatchDetails_HelmetsRow_OmittedWhenTerminalTooNarrow(t *testing.T
 		},
 	}
 
-	// Width=40 gives contentWidth=34, narrower than the 38-column combined
-	// helmet row (two 16-column helmets + a 6-column gap) - it must be
+	// Width=30 gives contentWidth=24, narrower than the 26-column combined
+	// helmet row (two 10-column helmets + a 6-column gap) - it must be
 	// omitted entirely rather than wrapping into garbage.
 	header, _ := RenderMatchDetails(MatchDetailsConfig{
-		Width:   40,
+		Width:   30,
 		Height:  40,
 		Details: details,
 	})
