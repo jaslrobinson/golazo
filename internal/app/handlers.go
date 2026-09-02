@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/0xjuanma/golazo/internal/api"
-	"github.com/0xjuanma/golazo/internal/ui"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/jaslrobinson/golazo/internal/api"
+	"github.com/jaslrobinson/golazo/internal/ui"
 )
 
 // handleMainViewKeys processes keyboard input for the main menu view.

@@ -1,6 +1,6 @@
 package espncfb
 
-import "github.com/0xjuanma/golazo/internal/api"
+import "github.com/jaslrobinson/golazo/internal/api"
 
 // fbsConferences is a hardcoded table of major FBS conference (ESPN "group")
 // IDs, mirroring the static approach golazo already takes for FotMob league

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/0xjuanma/golazo/internal/fotmob"
+	"github.com/jaslrobinson/golazo/internal/fotmob"
 )
 
 func main() {

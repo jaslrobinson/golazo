@@ -3,7 +3,7 @@ package data
 import (
 	"time"
 
-	"github.com/0xjuanma/golazo/internal/api"
+	"github.com/jaslrobinson/golazo/internal/api"
 )
 
 // MockFinishedMatches returns finished matches for the stats view.

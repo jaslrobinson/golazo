@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/0xjuanma/golazo/internal/ratelimit"
+	"github.com/jaslrobinson/golazo/internal/ratelimit"
 )
 
 // roundTripperFunc adapts a plain function to http.RoundTripper for tests.

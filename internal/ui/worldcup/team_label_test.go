@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/0xjuanma/golazo/internal/api"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/jaslrobinson/golazo/internal/api"
 	"github.com/mattn/go-runewidth"
 )
 

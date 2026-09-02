@@ -102,4 +102,3 @@ func TestDeriveFinalists_EmptyMatchups(t *testing.T) {
 		t.Errorf("expected nil, nil for final with no matchups; got %v, %v", champ, runner)
 	}
 }
-

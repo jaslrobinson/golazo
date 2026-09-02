@@ -70,7 +70,7 @@ func buildCapabilities() capabilities {
 		SchemaVersion: CapabilitiesSchemaVersion,
 		Tool:          "golazo",
 		Description:   "JSON CLI for football match data (live, finished, details, leagues)",
-		Docs:          "https://github.com/0xjuanma/golazo/blob/main/docs/CLI.md",
+		Docs:          "https://github.com/jaslrobinson/golazo/blob/main/docs/CLI.md",
 		Commands: []capabilityCommand{
 			{
 				Name:        "live",
@@ -129,8 +129,8 @@ func buildCapabilities() capabilities {
 			EnvOffline: "Refuses any network call; subcommands return offline unless --mock is set",
 		},
 		Envelope: map[string]any{
-			"success":  map[string]any{"status": "ok", "count": "int", "data": "[]object", "degraded": "bool (optional)", "failed_dates": "[]string (optional)"},
-			"error":    map[string]any{"status": "error", "code": "string", "message": "string"},
+			"success": map[string]any{"status": "ok", "count": "int", "data": "[]object", "degraded": "bool (optional)", "failed_dates": "[]string (optional)"},
+			"error":   map[string]any{"status": "error", "code": "string", "message": "string"},
 			"notes": []string{
 				"Errors always go to stderr; stdout stays empty on error.",
 				"Single-item responses (match <id>) still use a data array with count: 1.",

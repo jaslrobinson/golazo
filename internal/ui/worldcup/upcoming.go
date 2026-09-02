@@ -5,9 +5,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/0xjuanma/golazo/internal/api"
-	"github.com/0xjuanma/golazo/internal/ui/design"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/jaslrobinson/golazo/internal/api"
+	"github.com/jaslrobinson/golazo/internal/ui/design"
 )
 
 // wcUpcomingDateHeaderFormat is the format used for the per-date headers in

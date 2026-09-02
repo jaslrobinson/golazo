@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/0xjuanma/golazo/internal/api"
-	"github.com/0xjuanma/golazo/internal/data"
-	"github.com/0xjuanma/golazo/internal/reddit"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/jaslrobinson/golazo/internal/api"
+	"github.com/jaslrobinson/golazo/internal/data"
+	"github.com/jaslrobinson/golazo/internal/reddit"
 )
 
 // LiveRefreshInterval is the interval between automatic live matches list refreshes.

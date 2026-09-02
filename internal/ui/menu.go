@@ -4,11 +4,11 @@ package ui
 import (
 	"strings"
 
-	"github.com/0xjuanma/golazo/internal/constants"
-	"github.com/0xjuanma/golazo/internal/ui/design"
-	"github.com/0xjuanma/golazo/internal/ui/logo"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/jaslrobinson/golazo/internal/constants"
+	"github.com/jaslrobinson/golazo/internal/ui/design"
+	"github.com/jaslrobinson/golazo/internal/ui/logo"
 )
 
 // logoWidth is the standard width for the logo container.

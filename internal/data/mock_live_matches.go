@@ -3,7 +3,7 @@ package data
 import (
 	"time"
 
-	"github.com/0xjuanma/golazo/internal/api"
+	"github.com/jaslrobinson/golazo/internal/api"
 )
 
 // MockLiveMatches returns live matches for the live matches view.

@@ -6,10 +6,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/0xjuanma/golazo/internal/api"
-	"github.com/0xjuanma/golazo/internal/data"
-	"github.com/0xjuanma/golazo/internal/fotmob"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/jaslrobinson/golazo/internal/api"
+	"github.com/jaslrobinson/golazo/internal/data"
+	"github.com/jaslrobinson/golazo/internal/fotmob"
 )
 
 // wcUpcomingDays is the number of forward days (including today) considered

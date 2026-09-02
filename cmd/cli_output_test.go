@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/0xjuanma/golazo/internal/api"
+	"github.com/jaslrobinson/golazo/internal/api"
 )
 
 func TestWriteJSON_EmptySlice(t *testing.T) {
@@ -17,9 +17,9 @@ func TestWriteJSON_EmptySlice(t *testing.T) {
 	}
 
 	var env struct {
-		Status string       `json:"status"`
-		Count  int          `json:"count"`
-		Data   []api.Match  `json:"data"`
+		Status string      `json:"status"`
+		Count  int         `json:"count"`
+		Data   []api.Match `json:"data"`
 	}
 	if err := json.Unmarshal(buf.Bytes(), &env); err != nil {
 		t.Fatalf("unmarshal: %v\nraw: %s", err, buf.String())

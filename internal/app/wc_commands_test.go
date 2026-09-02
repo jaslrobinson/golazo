@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/0xjuanma/golazo/internal/api"
+	"github.com/jaslrobinson/golazo/internal/api"
 )
 
 func TestSortAndDedupeWCUpcoming(t *testing.T) {
@@ -16,13 +16,13 @@ func TestSortAndDedupeWCUpcoming(t *testing.T) {
 	// Five matches across 3 days, intentionally out of order, plus one duplicate
 	// of ID=2 and one match without MatchTime (must be dropped).
 	in := []api.Match{
-		mk(3, 48),       // day 3
-		mk(1, 0),        // day 1
-		mk(2, 24),       // day 2 (first occurrence)
-		mk(2, 25),       // duplicate ID — must be dropped (first occurrence wins)
-		mk(4, 26),       // day 2, later than #2
-		{ID: 999},       // no MatchTime — must be dropped
-		mk(5, 49),       // day 3, later than #3
+		mk(3, 48), // day 3
+		mk(1, 0),  // day 1
+		mk(2, 24), // day 2 (first occurrence)
+		mk(2, 25), // duplicate ID — must be dropped (first occurrence wins)
+		mk(4, 26), // day 2, later than #2
+		{ID: 999}, // no MatchTime — must be dropped
+		mk(5, 49), // day 3, later than #3
 	}
 
 	out := sortAndDedupeWCUpcoming(in)

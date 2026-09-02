@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/0xjuanma/golazo/internal/api"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/jaslrobinson/golazo/internal/api"
 )
 
 // newWCTestModel builds the minimal model needed to exercise the WC handlers

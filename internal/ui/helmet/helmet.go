@@ -15,7 +15,7 @@ import (
 	"image/png"
 	"sync"
 
-	"github.com/0xjuanma/golazo/internal/assets"
+	"github.com/jaslrobinson/golazo/internal/assets"
 )
 
 // alphaThreshold is the minimum alpha (0-255), averaged over a quadrant's

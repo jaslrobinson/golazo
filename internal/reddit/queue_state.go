@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/0xjuanma/golazo/internal/data"
+	"github.com/jaslrobinson/golazo/internal/data"
 )
 
 const queueStateFileName = "reddit_queue_state.json"

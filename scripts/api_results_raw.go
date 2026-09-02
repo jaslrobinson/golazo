@@ -33,7 +33,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/0xjuanma/golazo/internal/debug"
+	"github.com/jaslrobinson/golazo/internal/debug"
 	"github.com/goforj/godump"
 )
 

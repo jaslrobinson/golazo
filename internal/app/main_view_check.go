@@ -3,8 +3,8 @@ package app
 import (
 	"time"
 
-	"github.com/0xjuanma/golazo/internal/constants"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/jaslrobinson/golazo/internal/constants"
 )
 
 // mainViewCheckMsg is sent after the check delay completes.

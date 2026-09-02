@@ -1,4 +1,4 @@
-module github.com/0xjuanma/golazo
+module github.com/jaslrobinson/golazo
 
 go 1.25.0
 

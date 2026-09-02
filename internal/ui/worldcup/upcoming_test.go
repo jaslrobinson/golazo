@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/0xjuanma/golazo/internal/api"
+	"github.com/jaslrobinson/golazo/internal/api"
 )
 
 func TestRenderUpcoming_GroupsByDate(t *testing.T) {

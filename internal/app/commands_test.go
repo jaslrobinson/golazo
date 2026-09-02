@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/0xjuanma/golazo/internal/api"
-	"github.com/0xjuanma/golazo/internal/reddit"
+	"github.com/jaslrobinson/golazo/internal/api"
+	"github.com/jaslrobinson/golazo/internal/reddit"
 )
 
 // testLogger returns a slog.Logger that discards output, matching the

@@ -1,8 +1,8 @@
 package ui
 
 import (
-	"github.com/0xjuanma/golazo/internal/ui/design"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/jaslrobinson/golazo/internal/ui/design"
 )
 
 // Neon design styles - Golazo red/cyan theme

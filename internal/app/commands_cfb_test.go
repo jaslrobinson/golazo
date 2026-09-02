@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/0xjuanma/golazo/internal/api"
+	"github.com/jaslrobinson/golazo/internal/api"
 )
 
 // fakeClient is a minimal api.Client for testing commands.go's fetch

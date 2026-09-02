@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/0xjuanma/golazo/internal/api"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/jaslrobinson/golazo/internal/api"
 )
 
 // TestRenderBracketRound_ConnectorAlignment exercises the column geometry
@@ -64,8 +64,8 @@ func TestRenderBracketRound_ConnectorAlignment(t *testing.T) {
 	// ╯ sits at the end of "──╯". Align so that the vertical stroke of
 	// each connector glyph shares the same column.
 	corner := topCol
-	mid := midCol + 2     // ├ is preceded by no extra padding; the corner column is corner = mid + 2
-	bottom := botCol      // ╯ at end of "──╯" → column = bottom
+	mid := midCol + 2 // ├ is preceded by no extra padding; the corner column is corner = mid + 2
+	bottom := botCol  // ╯ at end of "──╯" → column = bottom
 
 	if corner != mid {
 		t.Errorf("top corner (col %d) not aligned with middle connector (col %d, +2 for ──)\nlines:\n%s",

@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/0xjuanma/golazo/internal/api"
-	"github.com/0xjuanma/golazo/internal/cache"
+	"github.com/jaslrobinson/golazo/internal/api"
+	"github.com/jaslrobinson/golazo/internal/cache"
 )
 
 // CacheConfig holds configuration for API response caching.
@@ -106,4 +106,3 @@ func (c *ResponseCache) SetPage(leagueID int, body json.RawMessage) {
 func (c *ResponseCache) ClearPages() {
 	c.pageCache.Clear()
 }
-

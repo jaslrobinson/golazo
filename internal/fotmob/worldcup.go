@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/0xjuanma/golazo/internal/api"
+	"github.com/jaslrobinson/golazo/internal/api"
 )
 
 // wcPageResponse is the parsed shape of FotMob's World Cup league page __NEXT_DATA__.
@@ -58,7 +58,7 @@ type wcPlayoff struct {
 }
 
 type wcPlayoffRound struct {
-	Stage    string        `json:"stage"`
+	Stage    string         `json:"stage"`
 	Matchups []wcMatchupRaw `json:"matchups"`
 }
 
@@ -227,11 +227,11 @@ func isWCGroupLetter(s string) bool {
 // Returns ordered rounds (excluding bronze) and the bronze final matchup.
 func parseWCBracket(playoff wcPlayoff) ([]api.WCKnockoutRound, *api.WCMatchup) {
 	stageOrder := map[string]int{
-		"1/32": 0, // Round of 64 (hypothetical)
-		"1/16": 1, // Round of 32
-		"1/8":  2, // Round of 16
-		"1/4":  3, // Quarterfinals
-		"1/2":  4, // Semifinals
+		"1/32":  0, // Round of 64 (hypothetical)
+		"1/16":  1, // Round of 32
+		"1/8":   2, // Round of 16
+		"1/4":   3, // Quarterfinals
+		"1/2":   4, // Semifinals
 		"final": 5,
 	}
 	stageLabels := map[string]string{

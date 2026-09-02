@@ -3,11 +3,11 @@ package ui
 import (
 	"fmt"
 
-	"github.com/0xjuanma/golazo/internal/constants"
-	"github.com/0xjuanma/golazo/internal/data"
-	"github.com/0xjuanma/golazo/internal/ui/design"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/jaslrobinson/golazo/internal/constants"
+	"github.com/jaslrobinson/golazo/internal/data"
+	"github.com/jaslrobinson/golazo/internal/ui/design"
 )
 
 // Settings view uses the same neon colors as the rest of the app (red/cyan theme).

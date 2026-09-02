@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/0xjuanma/golazo/internal/api"
-	"github.com/0xjuanma/golazo/internal/data"
+	"github.com/jaslrobinson/golazo/internal/api"
+	"github.com/jaslrobinson/golazo/internal/data"
 )
 
 func TestRunLive_MockReturnsEnvelopeWithExpectedCount(t *testing.T) {

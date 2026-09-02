@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/0xjuanma/golazo/internal/ratelimit"
+	"github.com/jaslrobinson/golazo/internal/ratelimit"
 )
 
 // ErrBlocked indicates Reddit's edge returned an HTTP 403 (typically the

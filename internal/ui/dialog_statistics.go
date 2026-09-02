@@ -4,18 +4,18 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/0xjuanma/golazo/internal/api"
-	"github.com/0xjuanma/golazo/internal/constants"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/jaslrobinson/golazo/internal/api"
+	"github.com/jaslrobinson/golazo/internal/constants"
 )
 
 // StatisticsDialog displays all match statistics in a comparison view.
 type StatisticsDialog struct {
 	homeTeam    string
 	awayTeam    string
-	homeScore	int
-	awayScore	int
+	homeScore   int
+	awayScore   int
 	statistics  []api.MatchStatistic
 	scrollIndex int
 	maxVisible  int
@@ -26,8 +26,8 @@ func NewStatisticsDialog(homeTeam, awayTeam string, homeScore, awayScore int, st
 	return &StatisticsDialog{
 		homeTeam:    homeTeam,
 		awayTeam:    awayTeam,
-		homeScore:    homeScore,
-		awayScore:    awayScore,
+		homeScore:   homeScore,
+		awayScore:   awayScore,
 		statistics:  statistics,
 		scrollIndex: 0,
 		maxVisible:  20, // Number of stats visible at once (larger dialog)
@@ -114,7 +114,7 @@ func (d *StatisticsDialog) renderTeamHeader(width int) string {
 	homeTeam = truncateString(homeTeam, maxLen)
 	awayTeam = truncateString(awayTeam, maxLen)
 
-	headerText := fmt.Sprintf("%s %d - %d  %s", homeTeam, d.homeScore , d.awayScore, awayTeam)
+	headerText := fmt.Sprintf("%s %d - %d  %s", homeTeam, d.homeScore, d.awayScore, awayTeam)
 	return lipgloss.NewStyle().
 		Width(width).
 		Align(lipgloss.Center).
@@ -155,11 +155,11 @@ func (d *StatisticsDialog) renderStatRow(stat api.MatchStatistic, width int) str
 		barColor = neonWhite
 	}
 	// Render solid color bars (cyan for home, gray for away)
-	homeBar :=  lipgloss.NewStyle().Foreground(neonGray).Render(strings.Repeat("░", barWidth-homeBarWidth)) +
-				lipgloss.NewStyle().Foreground(barColor).Render(strings.Repeat("█", homeBarWidth))
+	homeBar := lipgloss.NewStyle().Foreground(neonGray).Render(strings.Repeat("░", barWidth-homeBarWidth)) +
+		lipgloss.NewStyle().Foreground(barColor).Render(strings.Repeat("█", homeBarWidth))
 
-	awayBar := 	lipgloss.NewStyle().Foreground(barColor).Render(strings.Repeat("█", awayBarWidth)) +
-				lipgloss.NewStyle().Foreground(neonGray).Render(strings.Repeat("░", barWidth-awayBarWidth))
+	awayBar := lipgloss.NewStyle().Foreground(barColor).Render(strings.Repeat("█", awayBarWidth)) +
+		lipgloss.NewStyle().Foreground(neonGray).Render(strings.Repeat("░", barWidth-awayBarWidth))
 
 	homeBarStyled := lipgloss.NewStyle().Foreground(neonCyan).Render(homeBar)
 	awayBarStyled := lipgloss.NewStyle().Foreground(neonGray).Render(awayBar)
@@ -225,4 +225,3 @@ func calculateBarWidths(home, away float64, maxWidth int) (int, int) {
 
 	return homeWidth, awayWidth
 }
-

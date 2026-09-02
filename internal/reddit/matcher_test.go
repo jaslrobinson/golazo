@@ -70,9 +70,9 @@ func TestNormalizeName(t *testing.T) {
 
 func TestBuildMinutePattern(t *testing.T) {
 	tests := []struct {
-		name          string
-		goal          GoalInfo
-		shouldMatch   []string
+		name           string
+		goal           GoalInfo
+		shouldMatch    []string
 		shouldNotMatch []string
 	}{
 		{
@@ -251,9 +251,9 @@ func TestContainsName(t *testing.T) {
 
 func TestBuildScorePattern(t *testing.T) {
 	tests := []struct {
-		name       string
-		home, away int
-		shouldMatch   []string
+		name           string
+		home, away     int
+		shouldMatch    []string
 		shouldNotMatch []string
 	}{
 		{
@@ -303,11 +303,11 @@ func TestFindBestMatch(t *testing.T) {
 	matchTime := time.Date(2024, 1, 15, 20, 0, 0, 0, time.UTC)
 
 	tests := []struct {
-		name     string
-		results  []SearchResult
-		goal     GoalInfo
-		wantNil  bool
-		wantURL  string
+		name    string
+		results []SearchResult
+		goal    GoalInfo
+		wantNil bool
+		wantURL string
 	}{
 		{
 			name:    "empty results returns nil",
@@ -462,10 +462,10 @@ func TestFindBestMatchScoreAdvisory(t *testing.T) {
 
 func TestCalculateConfidence(t *testing.T) {
 	tests := []struct {
-		name       string
-		result     SearchResult
-		goal       GoalInfo
-		wantLevel  MatchConfidence
+		name      string
+		result    SearchResult
+		goal      GoalInfo
+		wantLevel MatchConfidence
 	}{
 		{
 			name:   "high confidence - both teams and minute",
@@ -586,10 +586,10 @@ func TestRegexpPackageLevelVars(t *testing.T) {
 	// These are compiled at init time; if they fail, the package won't load.
 	// But we can verify their behavior.
 	tests := []struct {
-		name    string
-		re      *regexp.Regexp
-		input   string
-		want    string
+		name  string
+		re    *regexp.Regexp
+		input string
+		want  string
 	}{
 		{"reNonAlphanumSpace removes accents", reNonAlphanumSpace, "atlético", "atltico"},
 		{"reNonAlphanumSpace keeps digits", reNonAlphanumSpace, "team123", "team123"},

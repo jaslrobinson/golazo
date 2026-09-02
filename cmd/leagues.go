@@ -5,8 +5,8 @@ import (
 	"os"
 	"sort"
 
-	"github.com/0xjuanma/golazo/internal/api"
-	"github.com/0xjuanma/golazo/internal/data"
+	"github.com/jaslrobinson/golazo/internal/api"
+	"github.com/jaslrobinson/golazo/internal/data"
 	"github.com/spf13/cobra"
 )
 
@@ -70,8 +70,8 @@ func runLeagues(stdout, stderr io.Writer, flags leaguesFlags) int {
 }
 
 var leaguesCmd = &cobra.Command{
-	Use:           "leagues",
-	Short:         "List active (or all) supported leagues as JSON",
+	Use:   "leagues",
+	Short: "List active (or all) supported leagues as JSON",
 	Long: `Prints a JSON envelope listing currently active leagues (or all supported leagues with --all). No network calls. Useful for discovering league IDs to interpret live/finished results.
 
 Example output:

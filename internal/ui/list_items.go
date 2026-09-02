@@ -1,9 +1,9 @@
 package ui
 
 import (
-	"github.com/0xjuanma/golazo/internal/api"
-	"github.com/0xjuanma/golazo/internal/data"
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/jaslrobinson/golazo/internal/api"
+	"github.com/jaslrobinson/golazo/internal/data"
 )
 
 // MatchListItem implements the list.Item interface for matches.

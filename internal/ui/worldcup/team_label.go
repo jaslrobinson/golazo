@@ -3,7 +3,7 @@ package worldcup
 import (
 	"strings"
 
-	"github.com/0xjuanma/golazo/internal/api"
+	"github.com/jaslrobinson/golazo/internal/api"
 	"github.com/mattn/go-runewidth"
 )
 

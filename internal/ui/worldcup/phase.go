@@ -1,6 +1,6 @@
 package worldcup
 
-import "github.com/0xjuanma/golazo/internal/api"
+import "github.com/jaslrobinson/golazo/internal/api"
 
 // Phase constants used in the phase banner.
 const (

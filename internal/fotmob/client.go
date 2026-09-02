@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/0xjuanma/golazo/internal/api"
-	"github.com/0xjuanma/golazo/internal/data"
-	"github.com/0xjuanma/golazo/internal/ratelimit"
+	"github.com/jaslrobinson/golazo/internal/api"
+	"github.com/jaslrobinson/golazo/internal/data"
+	"github.com/jaslrobinson/golazo/internal/ratelimit"
 )
 
 const (
@@ -40,7 +40,7 @@ type Client struct {
 	pageURLs      map[int]string     // Match ID -> page slug mapping for page-based fetching
 	pageURLsMu    sync.RWMutex
 	maxConcurrent chan struct{} // Semaphore to limit concurrent API requests
-	logger        *slog.Logger // Optional debug logger (no-op if nil)
+	logger        *slog.Logger  // Optional debug logger (no-op if nil)
 }
 
 // NewClient creates a new FotMob API client with default configuration.

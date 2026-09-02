@@ -1,6 +1,6 @@
 package data
 
-import "github.com/0xjuanma/golazo/internal/api"
+import "github.com/jaslrobinson/golazo/internal/api"
 
 // MockWorldCupData2026 returns illustrative data for the 2026 FIFA World Cup
 // (USA/Canada/Mexico). Group standings reflect the tournament as of mid-group-
@@ -26,19 +26,19 @@ func MockWorldCupData2026() *api.WorldCupData {
 // Known FotMob IDs reused from real data; 900xx are mock placeholders.
 
 const (
-	idUSA        = 6713
-	idEngland    = 8491
-	idFrance     = 6723
-	idArgentina  = 6706
+	idUSA         = 6713
+	idEngland     = 8491
+	idFrance      = 6723
+	idArgentina   = 6706
 	idNetherlands = 6708
-	idSenegal    = 6395
-	idEcuador    = 6707
-	idMexico     = 6710
-	idAustralia  = 6716
-	idIran       = 6711
-	idWales      = 5790
-	idPoland     = 8568
-	idTunisia    = 6719
+	idSenegal     = 6395
+	idEcuador     = 6707
+	idMexico      = 6710
+	idAustralia   = 6716
+	idIran        = 6711
+	idWales       = 5790
+	idPoland      = 8568
+	idTunisia     = 6719
 
 	idBrazil      = 90001
 	idPortugal    = 90002
@@ -287,4 +287,3 @@ func mockWC2026Bronze() *api.WCMatchup {
 func MockWorldCupUpcoming2026() []api.Match {
 	return nil
 }
-

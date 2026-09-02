@@ -3,8 +3,8 @@ package ui
 import (
 	"strings"
 
-	"github.com/0xjuanma/golazo/internal/ui/design"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/jaslrobinson/golazo/internal/ui/design"
 )
 
 // Dialog-specific styles using existing adaptive colors from neon_styles.go.

@@ -7,9 +7,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/0xjuanma/golazo/internal/api"
-	"github.com/0xjuanma/golazo/internal/data"
-	"github.com/0xjuanma/golazo/internal/fotmob"
+	"github.com/jaslrobinson/golazo/internal/api"
+	"github.com/jaslrobinson/golazo/internal/data"
+	"github.com/jaslrobinson/golazo/internal/fotmob"
 	"github.com/spf13/cobra"
 )
 
@@ -105,8 +105,8 @@ func runLive(stdout, stderr io.Writer, flags cliFlags) int {
 var liveFlags cliFlags
 
 var liveCmd = &cobra.Command{
-	Use:           "live",
-	Short:         "List live matches as JSON",
+	Use:   "live",
+	Short: "List live matches as JSON",
 	Long: `Fetches today's live matches for the active leagues and prints a JSON envelope to stdout.
 
 Example output:

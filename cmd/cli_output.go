@@ -7,7 +7,7 @@ import (
 	"io"
 	"sort"
 
-	"github.com/0xjuanma/golazo/internal/api"
+	"github.com/jaslrobinson/golazo/internal/api"
 )
 
 // ErrorCode is a typed, machine-readable error category for CLI consumers.
@@ -23,12 +23,12 @@ const (
 
 // Exit codes mapped from ErrorCode. Documented in docs/cli.md.
 const (
-	ExitOK           = 0
-	ExitUpstream     = 1
-	ExitInvalidArgs  = 2
-	ExitNotFound     = 3
-	ExitTimeout      = 4
-	ExitOffline      = 5
+	ExitOK          = 0
+	ExitUpstream    = 1
+	ExitInvalidArgs = 2
+	ExitNotFound    = 3
+	ExitTimeout     = 4
+	ExitOffline     = 5
 )
 
 // ExitCodeFor returns the documented exit code for a given ErrorCode.
@@ -51,11 +51,11 @@ func ExitCodeFor(code ErrorCode) int {
 
 // okEnvelope is the shape returned on success.
 type okEnvelope struct {
-	Status        string `json:"status"`
-	Degraded      bool   `json:"degraded,omitempty"`
-	FailedDates   []string `json:"failed_dates,omitempty"`
-	Count         int    `json:"count"`
-	Data          any    `json:"data"`
+	Status      string   `json:"status"`
+	Degraded    bool     `json:"degraded,omitempty"`
+	FailedDates []string `json:"failed_dates,omitempty"`
+	Count       int      `json:"count"`
+	Data        any      `json:"data"`
 }
 
 // errEnvelope is the shape returned on failure.

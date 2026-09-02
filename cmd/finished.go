@@ -7,9 +7,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/0xjuanma/golazo/internal/api"
-	"github.com/0xjuanma/golazo/internal/data"
-	"github.com/0xjuanma/golazo/internal/fotmob"
+	"github.com/jaslrobinson/golazo/internal/api"
+	"github.com/jaslrobinson/golazo/internal/data"
+	"github.com/jaslrobinson/golazo/internal/fotmob"
 	"github.com/spf13/cobra"
 )
 
@@ -149,8 +149,8 @@ func runFinished(stdout, stderr io.Writer, flags finishedFlags) int {
 }
 
 var finishedCmd = &cobra.Command{
-	Use:           "finished",
-	Short:         "List finished matches over a day window as JSON",
+	Use:   "finished",
+	Short: "List finished matches over a day window as JSON",
 	Long: `Fetches finished matches for the last --days days (default 1 = today) across active leagues. Use --include-upcoming to also include today's not-yet-started matches. Partial failures surface as degraded:true with failed_dates listed.
 
 Example output:

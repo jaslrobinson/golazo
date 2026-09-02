@@ -374,6 +374,7 @@ func buildMinutePattern(goal GoalInfo) *regexp.Regexp {
 //   - spaced: "1 - 0"
 //   - bracketed on either side: "[1] - 0", "1 - [0]", "[1]-0", "1-[0]"
 //   - parenthesised on either side: "(1) - 0", "1 - (0)"
+//
 // The brackets/parens may wrap either the home or away digit but not both.
 func buildScorePattern(homeScore, awayScore int) *regexp.Regexp {
 	h := strconv.Itoa(homeScore)

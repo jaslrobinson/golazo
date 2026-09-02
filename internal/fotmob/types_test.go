@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/0xjuanma/golazo/internal/api"
+	"github.com/jaslrobinson/golazo/internal/api"
 )
 
 func TestParseInt(t *testing.T) {
@@ -371,10 +371,10 @@ func TestToAPITableEntry(t *testing.T) {
 
 func TestGetParentLeagueID(t *testing.T) {
 	tests := []struct {
-		name     string
-		league   string
-		id       int
-		wantID   int
+		name   string
+		league string
+		id     int
+		wantID int
 	}{
 		{"Champions League match", "Champions League Grp. A", 999, 42},
 		{"Europa League match", "Europa League Knockout", 888, 73},

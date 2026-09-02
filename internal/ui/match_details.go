@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/0xjuanma/golazo/internal/api"
-	"github.com/0xjuanma/golazo/internal/constants"
-	"github.com/0xjuanma/golazo/internal/ui/design"
-	"github.com/0xjuanma/golazo/internal/ui/helmet"
 	"github.com/charmbracelet/bubbles/progress"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/jaslrobinson/golazo/internal/api"
+	"github.com/jaslrobinson/golazo/internal/constants"
+	"github.com/jaslrobinson/golazo/internal/ui/design"
+	"github.com/jaslrobinson/golazo/internal/ui/helmet"
 )
 
 // MatchDetailsConfig holds all parameters for rendering match details.
@@ -631,7 +631,6 @@ func renderStatComparison(label, homeVal, awayVal string, maxWidth int) string {
 
 	return labelLine + "\n" + barLine
 }
-
 
 func truncateString(s string, maxLen int) string {
 	if maxLen <= 1 {

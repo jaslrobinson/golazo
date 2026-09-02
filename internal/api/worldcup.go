@@ -13,20 +13,20 @@ type WCGroup struct {
 
 // WCMatchup represents a single knockout stage matchup.
 type WCMatchup struct {
-	HomeTeam    string
-	HomeTeamID  int
-	HomeShort   string
-	AwayTeam    string
-	AwayTeamID  int
-	AwayShort   string
+	HomeTeam     string
+	HomeTeamID   int
+	HomeShort    string
+	AwayTeam     string
+	AwayTeamID   int
+	AwayShort    string
 	HomeScore    *int
 	AwayScore    *int
 	HomePenScore *int
 	AwayPenScore *int
 	WinnerID     *int
 	IsPenalties  bool
-	TBDHome     bool
-	TBDAway     bool
+	TBDHome      bool
+	TBDAway      bool
 }
 
 // WCKnockoutRound represents a round in the knockout stage.
@@ -76,5 +76,3 @@ func (d *WorldCupData) DeriveFinalists() (*Team, *Team) {
 	}
 	return nil, nil
 }
-
-

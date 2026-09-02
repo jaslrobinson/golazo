@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/0xjuanma/golazo/internal/fotmob"
+	"github.com/jaslrobinson/golazo/internal/fotmob"
 )
 
 // Env vars recognized by the CLI subcommands.

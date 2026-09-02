@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/0xjuanma/golazo/internal/reddit"
+	"github.com/jaslrobinson/golazo/internal/reddit"
 )
 
 func main() {

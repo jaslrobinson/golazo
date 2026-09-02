@@ -6,10 +6,10 @@ package ui
 // internal/app/view.go without requiring changes there.
 
 import (
-	"github.com/0xjuanma/golazo/internal/api"
-	"github.com/0xjuanma/golazo/internal/constants"
-	"github.com/0xjuanma/golazo/internal/ui/worldcup"
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/jaslrobinson/golazo/internal/api"
+	"github.com/jaslrobinson/golazo/internal/constants"
+	"github.com/jaslrobinson/golazo/internal/ui/worldcup"
 )
 
 // WCGroupItem re-exported from the worldcup package so that app/wc_handlers.go

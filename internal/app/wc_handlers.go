@@ -4,7 +4,7 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/0xjuanma/golazo/internal/ui"
+	"github.com/jaslrobinson/golazo/internal/ui"
 )
 
 // handleWorldCupKeys routes keyboard input to the active WC sub-view handler.

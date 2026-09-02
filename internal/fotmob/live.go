@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/0xjuanma/golazo/internal/api"
+	"github.com/jaslrobinson/golazo/internal/api"
 )
 
 // classifyLeagueMatches splits a league's allMatches into currently-live and
@@ -192,11 +192,11 @@ func (p *LiveUpdateParser) ParseEvents(events []api.MatchEvent, homeTeam, awayTe
 
 // Event type prefixes for visual identification (used by UI for coloring)
 const (
-	EventPrefixGoal        = "●" // Solid circle - goals (red)
-	EventPrefixYellowCard  = "▪" // Square - yellow card (cyan)
-	EventPrefixRedCard     = "■" // Filled square - red card (red)
+	EventPrefixGoal         = "●" // Solid circle - goals (red)
+	EventPrefixYellowCard   = "▪" // Square - yellow card (cyan)
+	EventPrefixRedCard      = "■" // Filled square - red card (red)
 	EventPrefixSubstitution = "↔" // Arrow - substitution (dim)
-	EventPrefixOther       = "·" // Small dot - other events (dim)
+	EventPrefixOther        = "·" // Small dot - other events (dim)
 )
 
 // formatEvent formats a single event into a readable string with symbol prefix and label.

@@ -1,8 +1,8 @@
 package app
 
 import (
-	"github.com/0xjuanma/golazo/internal/api"
-	"github.com/0xjuanma/golazo/internal/reddit"
+	"github.com/jaslrobinson/golazo/internal/api"
+	"github.com/jaslrobinson/golazo/internal/reddit"
 )
 
 // liveUpdateMsg contains a live update string for match events.

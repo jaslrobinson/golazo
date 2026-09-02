@@ -7,9 +7,9 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/0xjuanma/golazo/internal/api"
-	"github.com/0xjuanma/golazo/internal/data"
-	"github.com/0xjuanma/golazo/internal/fotmob"
+	"github.com/jaslrobinson/golazo/internal/api"
+	"github.com/jaslrobinson/golazo/internal/data"
+	"github.com/jaslrobinson/golazo/internal/fotmob"
 	"github.com/spf13/cobra"
 )
 
@@ -71,8 +71,8 @@ func runMatch(stdout, stderr io.Writer, flags cliFlags, args []string) int {
 }
 
 var matchCmd = &cobra.Command{
-	Use:           "match <id>",
-	Short:         "Get match details as JSON (best-effort; see notes)",
+	Use:   "match <id>",
+	Short: "Get match details as JSON (best-effort; see notes)",
 	Long: `Fetches detailed information (events, lineups, stats, formations) for a single match by ID.
 
 LIMITATION: This subcommand is BEST-EFFORT only. FotMob's match-details endpoint is gated behind Cloudflare and requires a page slug that this CLI cannot reliably obtain in a one-shot invocation. Cold calls with arbitrary IDs typically return upstream_error (HTTP 404), even for valid IDs returned by 'live' or 'finished' in a separate process.

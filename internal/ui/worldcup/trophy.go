@@ -3,8 +3,8 @@ package worldcup
 import (
 	"fmt"
 
-	"github.com/0xjuanma/golazo/internal/api"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/jaslrobinson/golazo/internal/api"
 )
 
 // RenderTrophyCard renders a prominent champion + runner-up card

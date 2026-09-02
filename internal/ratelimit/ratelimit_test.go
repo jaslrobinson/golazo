@@ -7,9 +7,9 @@ import (
 
 func TestNew(t *testing.T) {
 	tests := []struct {
-		name        string
-		interval    time.Duration
-		wantNonNil  bool
+		name       string
+		interval   time.Duration
+		wantNonNil bool
 	}{
 		{"positive interval", 100 * time.Millisecond, true},
 		{"zero interval", 0, true},

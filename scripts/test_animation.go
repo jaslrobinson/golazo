@@ -10,7 +10,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/0xjuanma/golazo/internal/ui/logo"
+	"github.com/jaslrobinson/golazo/internal/ui/logo"
 )
 
 const (

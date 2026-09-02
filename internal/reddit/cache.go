@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/0xjuanma/golazo/internal/data"
+	"github.com/jaslrobinson/golazo/internal/data"
 )
 
 const (
