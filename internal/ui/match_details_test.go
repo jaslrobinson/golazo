@@ -94,3 +94,43 @@ func TestRenderMatchDetails_NoAggregateSection_WhenEmpty(t *testing.T) {
 		t.Errorf("RenderMatchDetails header should NOT contain %q for non-knockout match", "AGG.")
 	}
 }
+
+func TestRenderMatchDetails_HelmetsRow_RendersForSeededTeam(t *testing.T) {
+	details := &api.MatchDetails{
+		Match: api.Match{
+			Status:   api.MatchStatusNotStarted,
+			HomeTeam: api.Team{ID: 213, Name: "Penn State Nittany Lions", ShortName: "Penn St"},
+			AwayTeam: api.Team{Name: "Some Other Team", ShortName: "SOT"},
+		},
+	}
+
+	header, _ := RenderMatchDetails(MatchDetailsConfig{
+		Width:   80,
+		Height:  40,
+		Details: details,
+	})
+
+	if !strings.Contains(header, "▀") && !strings.Contains(header, "▄") {
+		t.Errorf("RenderMatchDetails header should contain helmet art for a team with seeded artwork")
+	}
+}
+
+func TestRenderMatchDetails_HelmetsRow_OmittedWhenNeitherTeamSeeded(t *testing.T) {
+	details := &api.MatchDetails{
+		Match: api.Match{
+			Status:   api.MatchStatusNotStarted,
+			HomeTeam: api.Team{Name: "Arsenal", ShortName: "ARS"},
+			AwayTeam: api.Team{Name: "Chelsea", ShortName: "CHE"},
+		},
+	}
+
+	header, _ := RenderMatchDetails(MatchDetailsConfig{
+		Width:   80,
+		Height:  40,
+		Details: details,
+	})
+
+	if strings.Contains(header, "▀") || strings.Contains(header, "▄") {
+		t.Errorf("RenderMatchDetails header should not contain helmet glyphs when no team has seeded art")
+	}
+}

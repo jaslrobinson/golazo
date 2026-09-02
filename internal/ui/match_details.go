@@ -7,6 +7,7 @@ import (
 	"github.com/0xjuanma/golazo/internal/api"
 	"github.com/0xjuanma/golazo/internal/constants"
 	"github.com/0xjuanma/golazo/internal/ui/design"
+	"github.com/0xjuanma/golazo/internal/ui/helmet"
 	"github.com/charmbracelet/bubbles/progress"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -62,6 +63,12 @@ func RenderMatchDetails(cfg MatchDetailsConfig) (headerContent, scrollableConten
 	headerLines = append(headerLines, renderStatusLine(details, contentWidth))
 	headerLines = append(headerLines, "")
 
+	// Helmet artwork row (renders nothing when neither team has curated art)
+	if helmetsRow := renderHelmetsRow(details.HomeTeam.ID, details.AwayTeam.ID, contentWidth); helmetsRow != "" {
+		headerLines = append(headerLines, helmetsRow)
+		headerLines = append(headerLines, "")
+	}
+
 	// Teams display
 	teamsDisplay := fmt.Sprintf("%s  vs  %s",
 		neonTeamStyle.Render(homeTeam),
@@ -115,6 +122,12 @@ func RenderMatchDetails(cfg MatchDetailsConfig) (headerContent, scrollableConten
 			scrollableLines = append(scrollableLines, goalsSection)
 		}
 
+		// Scoring plays section (American football: touchdowns/field goals/safeties)
+		scoringPlaysSection := renderScoringPlaysSection(cfg, contentWidth)
+		if scoringPlaysSection != "" {
+			scrollableLines = append(scrollableLines, scoringPlaysSection)
+		}
+
 		// Cards section
 		cardsSection := renderCardsSection(cfg, contentWidth)
 		if cardsSection != "" {
@@ -166,6 +179,22 @@ func renderStatusLine(details *api.MatchDetails, contentWidth int) string {
 		Width(contentWidth).
 		Align(lipgloss.Center).
 		Render(statusText + " • " + leagueText)
+}
+
+// renderHelmetsRow renders both teams' curated helmet artwork side by side,
+// centered within contentWidth. Returns "" if neither team has curated art.
+// Note: if only one team has art, the other side renders as blank space
+// rather than re-centering around the single helmet — acceptable for v1.
+func renderHelmetsRow(homeTeamID, awayTeamID, contentWidth int) string {
+	homeArt := helmet.Render(homeTeamID)
+	awayArt := helmet.Render(awayTeamID)
+	if homeArt == "" && awayArt == "" {
+		return ""
+	}
+
+	gap := lipgloss.NewStyle().Width(6).Render("")
+	row := lipgloss.JoinHorizontal(lipgloss.Center, homeArt, gap, awayArt)
+	return lipgloss.NewStyle().Width(contentWidth).Align(lipgloss.Center).Render(row)
 }
 
 func renderMatchContext(details *api.MatchDetails, contentWidth int) []string {
@@ -298,6 +327,52 @@ func renderGoalsSection(cfg MatchDetailsConfig, contentWidth int) string {
 			minuteStr = fmt.Sprintf("%d'", goal.Minute)
 		}
 		lines = append(lines, renderCenterAlignedEvent(minuteStr, goalContent, isHome, contentWidth))
+	}
+
+	return lipgloss.JoinVertical(lipgloss.Left, lines...)
+}
+
+// scoringPlayTypes are the api.MatchEvent.Type values emitted by football
+// providers (see internal/espncfb/map.go normalizeScoringPlayType).
+var scoringPlayTypes = map[string]string{
+	"touchdown":  "TD",
+	"field_goal": "FG",
+	"safety":     "SAFETY",
+	"score":      "SCORE",
+}
+
+func renderScoringPlaysSection(cfg MatchDetailsConfig, contentWidth int) string {
+	details := cfg.Details
+	var plays []api.MatchEvent
+	for _, event := range details.Events {
+		if _, ok := scoringPlayTypes[event.Type]; ok {
+			plays = append(plays, event)
+		}
+	}
+
+	if len(plays) == 0 {
+		return ""
+	}
+
+	var lines []string
+	lines = append(lines, "")
+	lines = append(lines, neonHeaderStyle.Render("Scoring Plays"))
+
+	for _, play := range plays {
+		isHome := play.Team.ID == details.HomeTeam.ID
+
+		description := play.Description
+		if description == "" {
+			description = "Unknown"
+		}
+
+		playDetails := neonValueStyle.Render(description)
+		label := scoringPlayTypes[play.Type]
+		styledLabel := design.ApplyGradientToText(label)
+		playContent := buildEventContent(playDetails, "", "●", styledLabel, isHome)
+
+		minuteStr := play.DisplayMinute
+		lines = append(lines, renderCenterAlignedEvent(minuteStr, playContent, isHome, contentWidth))
 	}
 
 	return lipgloss.JoinVertical(lipgloss.Left, lines...)
