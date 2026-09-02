@@ -23,6 +23,20 @@ func toIntPtr(s string) *int {
 	return &n
 }
 
+// matchDetailsLeague picks the conference for MatchDetails. ESPN's /summary
+// header competitor team object is a trimmed blob that doesn't reliably
+// carry conferenceId (confirmed live 2026-09-02, event 401856766: empty
+// there despite the same team's conferenceId being populated on
+// /scoreboard), while the boxscore team object does — so fall back to the
+// boxscore's conferenceId when the header's is empty.
+func matchDetailsLeague(headerConferenceID, boxscoreConferenceID string) api.League {
+	id := headerConferenceID
+	if id == "" {
+		id = boxscoreConferenceID
+	}
+	return conferenceByID(toInt(id))
+}
+
 func mapTeam(t rawTeam) api.Team {
 	name := t.DisplayName
 	if name == "" {

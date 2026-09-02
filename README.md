@@ -39,7 +39,7 @@ A minimalist terminal user interface (TUI) for following **NCAA college football
 - **Matchup Details**: Scoring plays, down/distance/field-position situation, categorized player leaders, win-probability momentum, and AP/Coaches rankings polls in focused dialogs
 - **Curated Helmet Art**: Real team helmets rendered as colored terminal art (33 programs curated so far) for both teams in a matchup
 - **Desktop Notifications**: Touchdown/field goal/safety alerts as they happen
-- **JSON CLI for agents**: `golazo live`, `finished`, `match`, `leagues`, `capabilities` — inherited unmodified from upstream, so it still returns **soccer** match data, not college football. See [docs/CLI.md](docs/CLI.md).
+- **JSON CLI for agents**: `golazo live`, `finished`, `match`, `leagues`, `capabilities` — ported to ESPN's college-football data, same as the interactive app. See [docs/CLI.md](docs/CLI.md).
 
 ## What changed from upstream
 
@@ -47,7 +47,7 @@ A minimalist terminal user interface (TUI) for following **NCAA college football
 - New match-detail dialogs: Situation (`f`), Leaders, Momentum, and Rankings, plus a Standings dialog (`s`) — none of these have a soccer equivalent in upstream.
 - New `internal/ui/helmet` package renders curated team helmets as colored terminal art (Unicode sextant-block technique) for both teams in a matchup, mirrored to face each other.
 - New `internal/espncfb` package implements ESPN's college-football site API against the same `api.Client` interface upstream built for FotMob (soccer), so the rest of the app didn't need a rewrite to add a second sport.
-- The **JSON CLI is untouched** and still talks to FotMob (soccer) — it hasn't been ported to the CFB data source yet.
+- The **JSON CLI (`golazo live/finished/match/leagues/capabilities`) now talks to ESPN** too — `--mock` still serves upstream's soccer-flavored fixtures, since CFB mock data hasn't been built yet (see [docs/CLI.md](docs/CLI.md#known-limitations)).
 
 ## Installation & Update
 
@@ -96,22 +96,22 @@ golazo
 
 ## CLI / Agent Mode
 
-For scripts and agentic tools (Claude Code, Codex, MCP servers), Golazo exposes JSON subcommands. **These are inherited unmodified from upstream and return soccer match data**, not college football:
+For scripts and agentic tools (Claude Code, Codex, MCP servers), Golazo exposes JSON subcommands backed by ESPN's college-football data:
 
 ```bash
 golazo capabilities | jq .                       # self-discover the contract
-golazo live                                       # live matches right now
-golazo finished --include-upcoming                # today's full slate
+golazo live                                       # in-progress games right now
+golazo finished --include-upcoming                # last 8 days' full slate (reaches the prior weekend)
 golazo finished --days 3                          # last 3 days
-golazo match 2001 --mock                          # full match details (best-effort against real IDs; reliable with --mock)
-golazo leagues --all                              # every supported league
+golazo match 2001 --mock                          # full game details (scoring plays, situation, leaders, momentum)
+golazo leagues                                    # every FBS conference
 ```
 
 Full contract — JSON envelope, error codes, exit codes, retry policy, schema, jq recipes — in **[docs/CLI.md](docs/CLI.md)**.
 
 ## Docs
 
-- [Supported Leagues](docs/SUPPORTED_LEAGUES.md): Soccer leagues covered by the JSON CLI (not this fork's college-football conferences, which are hardcoded in `internal/espncfb/conferences.go`)
+- [Supported Leagues](docs/SUPPORTED_LEAGUES.md): Upstream's soccer league catalog — no longer used by this fork's JSON CLI, which reads `internal/espncfb/conferences.go`'s FBS conference table instead (`golazo leagues`)
 - [Notifications](docs/NOTIFICATIONS.md): Desktop notification setup and configuration
 - [CLI / Agent Mode](docs/CLI.md): JSON subcommands for agents and scripts (`golazo live`, `finished`, `match`, `leagues`)
 

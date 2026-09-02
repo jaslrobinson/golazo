@@ -9,13 +9,12 @@ import (
 
 	"github.com/jaslrobinson/golazo/internal/api"
 	"github.com/jaslrobinson/golazo/internal/data"
-	"github.com/jaslrobinson/golazo/internal/fotmob"
 	"github.com/spf13/cobra"
 )
 
 type matchDetailsFetcher func(ctx context.Context, matchID int) (*api.MatchDetails, error)
 
-func defaultMatchDetailsFetcher(c *fotmob.Client) matchDetailsFetcher {
+func defaultMatchDetailsFetcher(c api.Client) matchDetailsFetcher {
 	return c.MatchDetails
 }
 
@@ -72,22 +71,16 @@ func runMatch(stdout, stderr io.Writer, flags cliFlags, args []string) int {
 
 var matchCmd = &cobra.Command{
 	Use:   "match <id>",
-	Short: "Get match details as JSON (best-effort; see notes)",
-	Long: `Fetches detailed information (events, lineups, stats, formations) for a single match by ID.
+	Short: "Get match details as JSON (events, situation, leaders, momentum)",
+	Long: `Fetches detailed information (scoring plays, down/distance situation, player leaders, win-probability momentum, box score) for a single NCAA college football game by ESPN event ID.
 
-LIMITATION: This subcommand is BEST-EFFORT only. FotMob's match-details endpoint is gated behind Cloudflare and requires a page slug that this CLI cannot reliably obtain in a one-shot invocation. Cold calls with arbitrary IDs typically return upstream_error (HTTP 404), even for valid IDs returned by 'live' or 'finished' in a separate process.
-
-Reliable usage:
-  - With --mock: works against bundled mock IDs (e.g. 2001, 2002)
-  - From inside the TUI: 'golazo' (interactive) reliably loads match details
-
-Not recommended for production agent pipelines. Agents that need event-level data should rely on the 'live' and 'finished' subcommands, which return match metadata, scores, status, and round info without this constraint.
+Unlike upstream's FotMob-backed version, this doesn't need a page-slug lookup — ESPN's summary endpoint takes the event ID directly (event=<id>), so cold calls with an ID from 'live' or 'finished' work in a single invocation (verified live).
 
 Example (mock):
   golazo match 2001 --mock
 
 Example output (truncated):
-  {"status":"ok","count":1,"data":[{"id":2001,"home_team":{"name":"Chelsea"},"away_team":{"name":"Tottenham"},"status":"live","home_score":2,"away_score":1,"events":[{"minute":12,"type":"goal","player":"Palmer","team":{"name":"Chelsea"}}],"statistics":[{"key":"possession","label":"Possession","home_value":"58%","away_value":"42%"}],"venue":"Stamford Bridge"}]}`,
+  {"status":"ok","count":1,"data":[{"id":401520281,"home_team":{"name":"Alabama Crimson Tide"},"away_team":{"name":"Georgia Bulldogs"},"status":"live","home_score":17,"away_score":14,"events":[{"description":"A.Milroe 12 Yd Run (Touchdown)","type":"touchdown","display_minute":"08:41 - 3rd"}],"statistics":[{"key":"totalYards","label":"Total Yards","home_value":"312","away_value":"287"}],"venue":"Bryant-Denny Stadium"}]}`,
 	Args:          cobra.ArbitraryArgs, // validated in runMatch for precise error envelope
 	SilenceUsage:  true,
 	SilenceErrors: true,

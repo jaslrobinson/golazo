@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -24,10 +25,23 @@ const (
 // undocumented site API for college football.
 type Client struct {
 	httpClient *http.Client
+	logger     *slog.Logger // Optional debug logger (no-op if nil)
 }
 
 func NewClient() *Client {
 	return &Client{httpClient: &http.Client{Timeout: 10 * time.Second}}
+}
+
+// SetLogger sets the debug logger for the client.
+// When set, the client logs the URL of every outgoing request.
+func (c *Client) SetLogger(logger *slog.Logger) {
+	c.logger = logger
+}
+
+func (c *Client) debugLog(msg string, args ...any) {
+	if c.logger != nil {
+		c.logger.Debug(msg, args...)
+	}
 }
 
 var (
@@ -36,6 +50,7 @@ var (
 )
 
 func (c *Client) get(ctx context.Context, url string, out any) error {
+	c.debugLog("espncfb: request", "url", url)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return err
@@ -126,9 +141,18 @@ func (c *Client) MatchDetails(ctx context.Context, matchID int) (*api.MatchDetai
 		}
 	}
 
+	var homeBox, awayBox rawBoxscoreTeam
+	for _, t := range raw.Boxscore.Teams {
+		if t.HomeAway == "home" {
+			homeBox = t
+		} else {
+			awayBox = t
+		}
+	}
+
 	base := api.Match{
 		ID:        matchID,
-		League:    conferenceByID(toInt(home.Team.ConferenceID)),
+		League:    matchDetailsLeague(home.Team.ConferenceID, homeBox.Team.ConferenceID),
 		HomeTeam:  mapTeam(home.Team),
 		AwayTeam:  mapTeam(away.Team),
 		Status:    mapStatus(hc.Status.Type),
@@ -148,14 +172,6 @@ func (c *Client) MatchDetails(ctx context.Context, matchID int) (*api.MatchDetai
 	}
 
 	if len(raw.Boxscore.Teams) == 2 {
-		var homeBox, awayBox rawBoxscoreTeam
-		for _, t := range raw.Boxscore.Teams {
-			if t.HomeAway == "home" {
-				homeBox = t
-			} else {
-				awayBox = t
-			}
-		}
 		details.Statistics = mapStatistics(homeBox, awayBox)
 	}
 

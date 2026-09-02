@@ -2,22 +2,30 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"os"
 	"time"
 
 	"github.com/jaslrobinson/golazo/internal/api"
 	"github.com/jaslrobinson/golazo/internal/data"
-	"github.com/jaslrobinson/golazo/internal/fotmob"
 	"github.com/spf13/cobra"
 )
 
 // MaxFinishedDays is the maximum supported lookback window for `golazo finished`.
-const MaxFinishedDays = 7
+// College football games cluster Thu-Sat rather than every day, so this must
+// reach back far enough to always find the prior weekend's games regardless
+// of what day "today" is — 8 mirrors internal/app/commands.go's
+// StatsLookbackDays (same reasoning: a Friday "today" needs 6 days back to
+// reach the prior Saturday; 8 leaves a day of slack).
+const MaxFinishedDays = 8
 
-// finishedDayFetcher abstracts MatchesByDateWithTabs for testing.
-type finishedDayFetcher func(ctx context.Context, date time.Time, tabs []string) ([]api.Match, error)
+// DefaultFinishedDays is the --days default. Set to MaxFinishedDays (rather
+// than "just today") so `golazo finished` with no flags reliably returns
+// recent games instead of an empty array on the many days CFB doesn't play.
+const DefaultFinishedDays = MaxFinishedDays
+
+// finishedDayFetcher abstracts a single day's match fetch for testing.
+type finishedDayFetcher func(ctx context.Context, date time.Time) ([]api.Match, error)
 
 // collectFinished iterates `days` calendar days ending today, calling the
 // per-day fetcher for each. It deduplicates by Match.ID and returns:
@@ -37,17 +45,11 @@ func collectFinished(ctx context.Context, fetch finishedDayFetcher, now time.Tim
 	var lastErr error
 
 	for i := 0; i < days; i++ {
-		date := now.AddDate(0, 0, -i).UTC()
+		date := now.AddDate(0, 0, -i)
 		dateStr := date.Format("2006-01-02")
 		isToday := i == 0
 
-		// Today needs fixtures+results (TUI behavior); past days only need results.
-		tabs := []string{"results"}
-		if isToday {
-			tabs = []string{"fixtures", "results"}
-		}
-
-		matches, err := fetch(ctx, date, tabs)
+		matches, err := fetch(ctx, date)
 		if err != nil {
 			failedDates = append(failedDates, dateStr)
 			lastErr = err
@@ -77,8 +79,8 @@ func collectFinished(ctx context.Context, fetch finishedDayFetcher, now time.Tim
 	return out, failedDates, nil
 }
 
-func defaultFinishedFetcher(c *fotmob.Client) finishedDayFetcher {
-	return c.MatchesByDateWithTabs
+func defaultFinishedFetcher(c api.Client) finishedDayFetcher {
+	return c.MatchesByDate
 }
 
 // finishedFlags extends the common flag set with --days and --include-upcoming.
@@ -121,17 +123,27 @@ func runFinished(stdout, stderr io.Writer, flags finishedFlags) int {
 		// Mock data is single-day; serve it regardless of --days.
 		matches = data.MockFinishedMatches()
 	} else {
-		matches, failedDates, err = collectFinished(ctx, defaultFinishedFetcher(client), time.Now(), flags.days, flags.includeUpcoming)
-		if err != nil {
-			return WriteError(stderr, ClassifyClientError(err, isTimeout(ctx)), err)
-		}
-		// Guard against silent timeouts: per-day fetches may all swallow the
-		// cancellation and return empty without an error. Surface as timeout
-		// so agents can distinguish "no finished matches" from "timed out".
-		if isTimeout(ctx) {
-			return WriteError(stderr, ErrCodeTimeout,
-				fmt.Errorf("finished matches fetch timed out after %s", flags.timeout))
-		}
+		matches, failedDates, err = collectFinished(ctx, defaultFinishedFetcher(client), espnNow(), flags.days, flags.includeUpcoming)
+	}
+
+	return writeFinishedResult(stdout, stderr, matches, failedDates, err, isTimeout(ctx))
+}
+
+// writeFinishedResult reports a collectFinished outcome as an exit code and
+// (on success) writes the JSON envelope to stdout.
+//
+// collectFinished only returns a non-nil err when every requested day
+// failed — each day's fetch goes through espncfb.Client.MatchesByDate,
+// which returns a real per-day error on deadline exceeded rather than
+// silently swallowing cancellation the way FotMob's goroutine aggregator
+// could. So err == nil here means every day genuinely completed, even a day
+// with zero games; a ctx that happens to be expired by the time this is
+// called (collectFinished makes `days` sequential HTTP calls against one
+// shared timeout budget, so the deadline can elapse just after the last
+// call returns) must not override that legitimate result.
+func writeFinishedResult(stdout, stderr io.Writer, matches []api.Match, failedDates []string, collectErr error, timedOut bool) int {
+	if collectErr != nil {
+		return WriteError(stderr, ClassifyClientError(collectErr, timedOut), collectErr)
 	}
 
 	SortMatches(matches)
@@ -151,13 +163,13 @@ func runFinished(stdout, stderr io.Writer, flags finishedFlags) int {
 var finishedCmd = &cobra.Command{
 	Use:   "finished",
 	Short: "List finished matches over a day window as JSON",
-	Long: `Fetches finished matches for the last --days days (default 1 = today) across active leagues. Use --include-upcoming to also include today's not-yet-started matches. Partial failures surface as degraded:true with failed_dates listed.
+	Long: `Fetches finished NCAA college football games (ESPN, all FBS conferences) for the last --days days (default 8, since games cluster Thursday-Saturday). Use --include-upcoming to also include today's not-yet-started matches. Partial failures surface as degraded:true with failed_dates listed.
 
 Example output:
-  {"status":"ok","count":2,"data":[{"id":4506420,"league":{"id":47,"name":"Premier League","country":"England"},"home_team":{"name":"Liverpool","short_name":"Liverpool"},"away_team":{"name":"Arsenal","short_name":"Arsenal"},"status":"finished","home_score":3,"away_score":1,"match_time":"2026-06-12T15:00:00Z"}]}
+  {"status":"ok","count":2,"data":[{"id":401520281,"league":{"id":8,"name":"SEC"},"home_team":{"name":"Alabama Crimson Tide","short_name":"Alabama"},"away_team":{"name":"Georgia Bulldogs","short_name":"Georgia"},"status":"finished","home_score":27,"away_score":24,"match_time":"2026-09-05T23:30:00Z"}]}
 
 Degraded example (one date failed but others succeeded):
-  {"status":"ok","degraded":true,"failed_dates":["2026-06-10"],"count":12,"data":[...]}`,
+  {"status":"ok","degraded":true,"failed_dates":["2026-09-03"],"count":12,"data":[...]}`,
 	SilenceUsage:  true,
 	SilenceErrors: true,
 	Run: func(cmd *cobra.Command, args []string) {
@@ -170,7 +182,7 @@ Degraded example (one date failed but others succeeded):
 
 func init() {
 	addCommonCLIFlags(finishedCmd, &finishedFlagSet.cliFlags)
-	finishedCmd.Flags().IntVar(&finishedFlagSet.days, "days", 1, "Number of days to look back (1..7)")
+	finishedCmd.Flags().IntVar(&finishedFlagSet.days, "days", DefaultFinishedDays, "Number of days to look back (1..8)")
 	finishedCmd.Flags().BoolVar(&finishedFlagSet.includeUpcoming, "include-upcoming", false, "Also include today's not-yet-started matches in the result")
 	rootCmd.AddCommand(finishedCmd)
 }

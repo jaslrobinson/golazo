@@ -9,7 +9,6 @@ import (
 
 	"github.com/jaslrobinson/golazo/internal/api"
 	"github.com/jaslrobinson/golazo/internal/data"
-	"github.com/jaslrobinson/golazo/internal/fotmob"
 	"github.com/spf13/cobra"
 )
 
@@ -49,14 +48,31 @@ func applyPretty(f cliFlags) {
 
 // liveFetcher abstracts the live-matches data source so runLive can be tested
 // without spinning up an HTTP client. The default implementation calls into
-// fotmob.Client; mock-mode callers bypass it entirely.
+// api.Client; mock-mode callers bypass it entirely.
 type liveFetcher func(ctx context.Context) ([]api.Match, error)
 
-func defaultLiveFetcher(c *fotmob.Client) liveFetcher {
+// defaultLiveFetcher fetches today's full slate (ESPN's scoreboard has no
+// separate "live" endpoint, unlike FotMob) and filters to matches currently
+// in progress.
+func defaultLiveFetcher(c api.Client) liveFetcher {
 	return func(ctx context.Context) ([]api.Match, error) {
-		live, _, err := c.LiveAndUpcoming(ctx)
-		return live, err
+		matches, err := c.MatchesByDate(ctx, espnNow())
+		if err != nil {
+			return nil, err
+		}
+		return filterByStatus(matches, api.MatchStatusLive), nil
 	}
+}
+
+// filterByStatus returns the subset of matches with the given status.
+func filterByStatus(matches []api.Match, status api.MatchStatus) []api.Match {
+	out := make([]api.Match, 0, len(matches))
+	for _, m := range matches {
+		if m.Status == status {
+			out = append(out, m)
+		}
+	}
+	return out
 }
 
 // runLive is the testable core of the `live` subcommand. It writes the JSON
@@ -107,10 +123,10 @@ var liveFlags cliFlags
 var liveCmd = &cobra.Command{
 	Use:   "live",
 	Short: "List live matches as JSON",
-	Long: `Fetches today's live matches for the active leagues and prints a JSON envelope to stdout.
+	Long: `Fetches today's in-progress NCAA college football games (ESPN, all FBS conferences) and prints a JSON envelope to stdout. College football games cluster on Thursday-Saturday, so this is often empty outside that window — that's correct, not a failure.
 
 Example output:
-  {"status":"ok","count":1,"data":[{"id":4506424,"league":{"id":47,"name":"Premier League","country":"England"},"home_team":{"id":8455,"name":"Chelsea","short_name":"Chelsea"},"away_team":{"id":6,"name":"Tottenham","short_name":"Spurs"},"status":"live","home_score":2,"away_score":1,"match_time":"2026-06-12T19:00:00Z","live_time":"67'","round":"Matchday 17"}]}`,
+  {"status":"ok","count":1,"data":[{"id":401520281,"league":{"id":8,"name":"SEC"},"home_team":{"id":333,"name":"Alabama Crimson Tide","short_name":"Alabama"},"away_team":{"id":61,"name":"Georgia Bulldogs","short_name":"Georgia"},"status":"live","home_score":17,"away_score":14,"match_time":"2026-09-05T23:30:00Z","live_time":"08:41 - 3rd"}]}`,
 	SilenceUsage:  true,
 	SilenceErrors: true,
 	Run: func(cmd *cobra.Command, args []string) {

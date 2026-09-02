@@ -11,6 +11,37 @@ import (
 // and the concurrent Week 1 scoreboard/rankings). They exist to catch a
 // mismatched json tag that a compile-clean-but-untested mapping wouldn't.
 
+// TestMatchDetailsLeague_FallsBackToBoxscoreConferenceID reproduces a real
+// gap found live (2026-09-02, event 401856766, TCU vs UNC): MatchDetails'
+// League came back {"id":0,"name":""} even though the same team's
+// conferenceId is populated correctly on /scoreboard responses. ESPN's
+// /summary header competitor team object is a trimmed blob that (per that
+// live response) doesn't carry conferenceId — but the boxscore team object
+// does — so the header value alone isn't reliable and must fall back to the
+// boxscore's.
+func TestMatchDetailsLeague_FallsBackToBoxscoreConferenceID(t *testing.T) {
+	got := matchDetailsLeague("", "8")
+	want := conferenceByID(8)
+	if got != want {
+		t.Errorf("matchDetailsLeague(\"\", \"8\") = %+v, want %+v", got, want)
+	}
+}
+
+func TestMatchDetailsLeague_PrefersHeaderConferenceIDWhenPresent(t *testing.T) {
+	got := matchDetailsLeague("5", "8")
+	want := conferenceByID(5)
+	if got != want {
+		t.Errorf("matchDetailsLeague(\"5\", \"8\") = %+v, want %+v (header should win when non-empty)", got, want)
+	}
+}
+
+func TestMatchDetailsLeague_EmptyWhenNeitherSourceHasIt(t *testing.T) {
+	got := matchDetailsLeague("", "")
+	if got.ID != 0 || got.Name != "" {
+		t.Errorf("matchDetailsLeague(\"\", \"\") = %+v, want zero-value League", got)
+	}
+}
+
 func TestMapStatistics_RealShape(t *testing.T) {
 	homeJSON := `{
 		"team": {"abbreviation": "USC"},

@@ -58,37 +58,33 @@ func buildCapabilities() capabilities {
 	}
 	finishedFlagDefs := append([]capabilityFlag{}, commonFlags...)
 	finishedFlagDefs = append(finishedFlagDefs,
-		capabilityFlag{Name: "days", Type: "int", Default: 1, Description: "Number of days to look back (1..7)"},
+		capabilityFlag{Name: "days", Type: "int", Default: DefaultFinishedDays, Description: "Number of days to look back (1..8). Default reaches the prior weekend since college football clusters Thu-Sat."},
 		capabilityFlag{Name: "include-upcoming", Type: "bool", Default: false, Description: "Also include today's not-yet-started matches"},
-	)
-	leaguesFlagDefs := append([]capabilityFlag{}, prettyOnly...)
-	leaguesFlagDefs = append(leaguesFlagDefs,
-		capabilityFlag{Name: "all", Type: "bool", Default: false, Description: "List every supported league, not just the active selection"},
 	)
 
 	return capabilities{
 		SchemaVersion: CapabilitiesSchemaVersion,
 		Tool:          "golazo",
-		Description:   "JSON CLI for football match data (live, finished, details, leagues)",
+		Description:   "JSON CLI for NCAA college football match data (live, finished, details, conferences), backed by ESPN",
 		Docs:          "https://github.com/jaslrobinson/golazo/blob/main/docs/CLI.md",
 		Commands: []capabilityCommand{
 			{
 				Name:        "live",
-				Description: "List live matches across active leagues",
+				Description: "List today's in-progress college football games across all FBS conferences. Often empty outside Thu-Sat — that's correct, not a failure.",
 				Flags:       commonFlags,
 				Example:     "golazo live",
 				ExitCodes:   []int{ExitOK, ExitUpstream, ExitTimeout, ExitOffline},
 			},
 			{
 				Name:        "finished",
-				Description: "List finished matches over a day window; optionally include today's upcoming matches",
+				Description: "List finished college football games over a day window; optionally include today's upcoming matches",
 				Flags:       finishedFlagDefs,
-				Example:     "golazo finished --days 3 --include-upcoming",
+				Example:     "golazo finished --days 8 --include-upcoming",
 				ExitCodes:   []int{ExitOK, ExitUpstream, ExitInvalidArgs, ExitTimeout, ExitOffline},
 			},
 			{
 				Name:        "match",
-				Description: "Get full match details (events, lineups, stats). BEST-EFFORT ONLY — cold calls against arbitrary IDs typically fail with upstream_error due to a FotMob slug-cache constraint. Reliable only with --mock or from the TUI. Not recommended for production agent pipelines.",
+				Description: "Get full game details (scoring plays, situation, player leaders, win-probability momentum, box score) by ESPN event ID.",
 				Args:        "<id>",
 				Flags:       commonFlags,
 				Example:     "golazo match 2001 --mock",
@@ -96,9 +92,9 @@ func buildCapabilities() capabilities {
 			},
 			{
 				Name:        "leagues",
-				Description: "List active leagues (or all supported leagues with --all). No network calls.",
-				Flags:       leaguesFlagDefs,
-				Example:     "golazo leagues --all",
+				Description: "List every hardcoded FBS conference (ESPN \"group\"). No network calls.",
+				Flags:       prettyOnly,
+				Example:     "golazo leagues",
 				ExitCodes:   []int{ExitOK},
 			},
 			{

@@ -1,7 +1,7 @@
 {
   "schema_version": "1",
   "name": "golazo",
-  "description": "JSON CLI for football match data (live, finished, details, leagues). Intended for agentic dev tools (Claude Code, Codex, MCP servers) and scripts.",
+  "description": "JSON CLI for NCAA college football match data (live, finished, details, conferences), backed by ESPN. A fork of 0xjuanma/golazo (soccer/FotMob) modified for American football. Intended for agentic dev tools (Claude Code, Codex, MCP servers) and scripts.",
   "homepage": "https://github.com/jaslrobinson/golazo",
   "docs": "https://github.com/jaslrobinson/golazo/blob/main/docs/CLI.md",
   "agent_mode": {
@@ -19,5 +19,5 @@
     "subcommands": ["live", "finished", "match", "leagues", "capabilities"],
     "recommended_invocation": "GOLAZO_AGENT=1 golazo <subcommand> [flags]"
   },
-  "tags": ["football", "soccer", "sports", "json", "cli", "agent-cli", "claude-code"]
+  "tags": ["football", "college-football", "ncaa", "cfb", "sports", "json", "cli", "agent-cli", "claude-code"]
 }

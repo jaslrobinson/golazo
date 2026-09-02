@@ -12,6 +12,69 @@ import (
 	"github.com/jaslrobinson/golazo/internal/data"
 )
 
+// TestWriteFinishedResult_SuccessAfterDeadlineExpiryIsNotReportedAsTimeout
+// reproduces a race that's real against ESPN even though every individual
+// fetch succeeds: collectFinished can still be mid-flight (or just finish)
+// after ctx's deadline has technically elapsed, because it makes `days`
+// sequential HTTP calls against one shared budget. Unlike FotMob's
+// goroutine aggregator (which could swallow cancellation and return
+// empty-with-nil-error, the scenario the old post-hoc isTimeout(ctx) guard
+// was written to catch), collectFinished only returns a nil error when
+// every day genuinely completed — so a ctx that happens to be expired by
+// the time the caller checks it afterward must not override that success.
+func TestWriteFinishedResult_SuccessAfterDeadlineExpiryIsNotReportedAsTimeout(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	matches := []api.Match{{ID: 1, Status: api.MatchStatusFinished}}
+	code := writeFinishedResult(&stdout, &stderr, matches, nil, nil, true /* timedOut, but collectErr is nil */)
+
+	if code != ExitOK {
+		t.Fatalf("code = %d, want %d (stderr=%s)", code, ExitOK, stderr.String())
+	}
+	if stderr.Len() != 0 {
+		t.Errorf("stderr not empty on success: %s", stderr.String())
+	}
+	var env struct {
+		Count int `json:"count"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &env); err != nil {
+		t.Fatalf("unmarshal stdout: %v\nraw: %s", err, stdout.String())
+	}
+	if env.Count != 1 {
+		t.Errorf("count = %d, want 1", env.Count)
+	}
+}
+
+func TestWriteFinishedResult_CollectErrIsClassifiedAndTimedOutIsHonored(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := writeFinishedResult(&stdout, &stderr, nil, []string{"2026-09-01"}, errors.New("all days failed"), true)
+
+	if code != ExitTimeout {
+		t.Fatalf("code = %d, want %d", code, ExitTimeout)
+	}
+	if stdout.Len() != 0 {
+		t.Errorf("stdout should be empty on error, got: %s", stdout.String())
+	}
+}
+
+func TestWriteFinishedResult_DegradedWhenFailedDatesPresent(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	matches := []api.Match{{ID: 1, Status: api.MatchStatusFinished}}
+	code := writeFinishedResult(&stdout, &stderr, matches, []string{"2026-09-01"}, nil, false)
+
+	if code != ExitOK {
+		t.Fatalf("code = %d, want %d (stderr=%s)", code, ExitOK, stderr.String())
+	}
+	var env struct {
+		Degraded bool `json:"degraded"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &env); err != nil {
+		t.Fatalf("unmarshal stdout: %v\nraw: %s", err, stdout.String())
+	}
+	if !env.Degraded {
+		t.Errorf("expected degraded:true in output: %s", stdout.String())
+	}
+}
+
 func TestRunFinished_MockReturnsExpectedCount(t *testing.T) {
 	t.Setenv(EnvOffline, "")
 	t.Setenv(EnvAgent, "")
@@ -36,7 +99,7 @@ func TestRunFinished_MockReturnsExpectedCount(t *testing.T) {
 }
 
 func TestRunFinished_InvalidDays(t *testing.T) {
-	cases := []int{0, -1, 8, 100}
+	cases := []int{0, -1, 9, 100}
 	for _, days := range cases {
 		t.Run("", func(t *testing.T) {
 			var stdout, stderr bytes.Buffer
@@ -61,7 +124,7 @@ func TestRunFinished_InvalidDays(t *testing.T) {
 func TestCollectFinished_DedupsByID(t *testing.T) {
 	now := time.Date(2026, 6, 12, 12, 0, 0, 0, time.UTC)
 	calls := 0
-	fetch := func(ctx context.Context, date time.Time, tabs []string) ([]api.Match, error) {
+	fetch := func(ctx context.Context, date time.Time) ([]api.Match, error) {
 		calls++
 		// Return the same finished match each day; expect dedup to keep it once.
 		return []api.Match{
@@ -94,7 +157,7 @@ func TestCollectFinished_DedupsByID(t *testing.T) {
 func TestCollectFinished_PartialFailureFlagsDegraded(t *testing.T) {
 	now := time.Date(2026, 6, 12, 12, 0, 0, 0, time.UTC)
 	callCount := 0
-	fetch := func(ctx context.Context, date time.Time, tabs []string) ([]api.Match, error) {
+	fetch := func(ctx context.Context, date time.Time) ([]api.Match, error) {
 		callCount++
 		if callCount == 2 {
 			return nil, errors.New("upstream blew up")
@@ -118,7 +181,7 @@ func TestCollectFinished_PartialFailureFlagsDegraded(t *testing.T) {
 
 func TestCollectFinished_AllFailureReturnsError(t *testing.T) {
 	now := time.Date(2026, 6, 12, 12, 0, 0, 0, time.UTC)
-	fetch := func(ctx context.Context, date time.Time, tabs []string) ([]api.Match, error) {
+	fetch := func(ctx context.Context, date time.Time) ([]api.Match, error) {
 		return nil, errors.New("nope")
 	}
 
@@ -134,25 +197,24 @@ func TestCollectFinished_AllFailureReturnsError(t *testing.T) {
 	}
 }
 
-func TestCollectFinished_TodayUsesFixturesAndResults(t *testing.T) {
+func TestCollectFinished_FetchesOneCallPerDay(t *testing.T) {
 	now := time.Date(2026, 6, 12, 12, 0, 0, 0, time.UTC)
-	gotTabs := [][]string{}
-	fetch := func(ctx context.Context, date time.Time, tabs []string) ([]api.Match, error) {
-		gotTabs = append(gotTabs, tabs)
+	var gotDates []time.Time
+	fetch := func(ctx context.Context, date time.Time) ([]api.Match, error) {
+		gotDates = append(gotDates, date)
 		return nil, nil
 	}
 
 	_, _, _ = collectFinished(context.Background(), fetch, now, 2, false)
-	if len(gotTabs) != 2 {
-		t.Fatalf("expected 2 fetches, got %d", len(gotTabs))
+	if len(gotDates) != 2 {
+		t.Fatalf("expected 2 fetches (one per day), got %d", len(gotDates))
 	}
-	// Day 0 (today) → fixtures+results
-	if len(gotTabs[0]) != 2 {
-		t.Errorf("today tabs = %v, want fixtures+results", gotTabs[0])
+	if !gotDates[0].Equal(now) {
+		t.Errorf("day 0 = %v, want today (%v)", gotDates[0], now)
 	}
-	// Day 1 → results only
-	if len(gotTabs[1]) != 1 || gotTabs[1][0] != "results" {
-		t.Errorf("past-day tabs = %v, want [results]", gotTabs[1])
+	wantYesterday := now.AddDate(0, 0, -1)
+	if !gotDates[1].Equal(wantYesterday) {
+		t.Errorf("day 1 = %v, want yesterday (%v)", gotDates[1], wantYesterday)
 	}
 }
 
@@ -174,7 +236,7 @@ func TestRunFinished_TimeoutNotSwallowed(t *testing.T) {
 
 func TestCollectFinished_IncludeUpcomingTodayOnly(t *testing.T) {
 	now := time.Date(2026, 6, 12, 12, 0, 0, 0, time.UTC)
-	fetch := func(ctx context.Context, date time.Time, tabs []string) ([]api.Match, error) {
+	fetch := func(ctx context.Context, date time.Time) ([]api.Match, error) {
 		// Same payload returned for every day: one finished, one not_started.
 		return []api.Match{
 			{ID: int(date.Unix()) + 1, Status: api.MatchStatusFinished},
