@@ -7,13 +7,18 @@ manifest.json:
 
     python3 -m venv .venv
     .venv/bin/pip install -r requirements.txt
-    .venv/bin/python generate.py
+    .venv/bin/python generate.py [espn_team_id ...]
+
+With no arguments, regenerates every team in manifest.json. Pass one or
+more ESPN team IDs to regenerate only those (e.g. after swapping one
+team's image_url for a better source photo).
 
 First run downloads the rembg background-removal model automatically
 (~1GB, one-time, cached under ~/.rembg after that).
 """
 import io
 import json
+import sys
 import urllib.request
 from pathlib import Path
 
@@ -53,6 +58,12 @@ def process(src: Image.Image) -> Image.Image:
 
 def main():
     manifest = json.loads(MANIFEST.read_text())
+    if len(sys.argv) > 1:
+        wanted = {int(a) for a in sys.argv[1:]}
+        manifest = [e for e in manifest if e["espn_team_id"] in wanted]
+        missing = wanted - {e["espn_team_id"] for e in manifest}
+        if missing:
+            raise SystemExit(f"no manifest entry for team id(s): {sorted(missing)}")
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     for entry in manifest:
         team_id = entry["espn_team_id"]
