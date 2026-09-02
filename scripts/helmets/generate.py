@@ -28,8 +28,11 @@ from rembg import remove
 
 MANIFEST = Path(__file__).parent / "manifest.json"
 OUT_DIR = Path(__file__).parent.parent.parent / "internal" / "assets" / "helmets"
-GRID_COLS = 20
-GRID_ROWS = 12  # 2 source cols and 2 source rows per terminal cell (quadrant-block technique)
+GRID_COLS = 40
+GRID_ROWS = 24  # 4 source cols and 4 source rows per terminal cell:
+                # internal/ui/helmet averages a 2x2 subsample block into
+                # each of a cell's 4 quadrants, for smoother edges at the
+                # same 10x6 terminal footprint.
 ALPHA_THRESHOLD = 40
 CROP_PADDING = 8
 

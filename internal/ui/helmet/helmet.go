@@ -21,10 +21,19 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// alphaThreshold is the minimum alpha (0-255) for a source pixel to be
-// treated as part of the helmet rather than removed background. Matches
-// the threshold used by scripts/helmets/generate.py.
+// alphaThreshold is the minimum alpha (0-255), averaged over a quadrant's
+// sampled block (see subsample below), for that quadrant to be treated as
+// part of the helmet rather than removed background.
 const alphaThreshold = 40
+
+// subsample is the size (in source pixels) of the block averaged into each
+// quadrant. Each terminal cell therefore consumes a (2*subsample) x
+// (2*subsample) block of the embedded PNG - subsample=2 needs a 4x4 block
+// per cell. Averaging multiple source pixels per quadrant (rather than
+// sampling one directly) smooths edges without changing the terminal
+// footprint; scripts/helmets/generate.py's GRID_COLS/GRID_ROWS must be a
+// multiple of 2*subsample to match.
+const subsample = 2
 
 var (
 	cacheMu sync.Mutex
@@ -77,18 +86,20 @@ func toNRGBA(img image.Image) *image.NRGBA {
 }
 
 // renderNRGBA converts a background-removed helmet image into colored
-// quadrant-block terminal art. Each terminal cell packs a 2x2 block of
-// source pixels (top-left, top-right, bottom-left, bottom-right); see
+// quadrant-block terminal art. Each terminal cell packs a 2x2 arrangement
+// of quadrants (top-left, top-right, bottom-left, bottom-right), each
+// itself an average of a subsample x subsample block of source pixels; see
 // renderQuadrantCell for how opacity and color combine into a glyph.
 func renderNRGBA(img *image.NRGBA) string {
 	bounds := img.Bounds()
+	step := subsample * 2
 	var b strings.Builder
-	for y := bounds.Min.Y; y+1 < bounds.Max.Y; y += 2 {
-		for x := bounds.Min.X; x+1 < bounds.Max.X; x += 2 {
+	for y := bounds.Min.Y; y+step-1 < bounds.Max.Y; y += step {
+		for x := bounds.Min.X; x+step-1 < bounds.Max.X; x += step {
 			tl := quadrantAt(img, x, y)
-			tr := quadrantAt(img, x+1, y)
-			bl := quadrantAt(img, x, y+1)
-			br := quadrantAt(img, x+1, y+1)
+			tr := quadrantAt(img, x+subsample, y)
+			bl := quadrantAt(img, x, y+subsample)
+			br := quadrantAt(img, x+subsample, y+subsample)
 			b.WriteString(renderQuadrantCell(tl, tr, bl, br))
 		}
 		b.WriteString("\n")
@@ -102,12 +113,27 @@ type quadrant struct {
 	r, g, b uint8
 }
 
-func quadrantAt(img *image.NRGBA, x, y int) quadrant {
-	c := img.NRGBAAt(x, y)
-	if c.A < alphaThreshold {
+// quadrantAt averages the subsample x subsample block of source pixels at
+// (x0, y0) into a single quadrant value. Color is alpha-weighted so fully
+// (or mostly) transparent pixels in the block don't dilute the color of
+// the opaque ones with whatever arbitrary RGB they happen to hold.
+func quadrantAt(img *image.NRGBA, x0, y0 int) quadrant {
+	var rSum, gSum, bSum, aSum uint32
+	for dy := 0; dy < subsample; dy++ {
+		for dx := 0; dx < subsample; dx++ {
+			c := img.NRGBAAt(x0+dx, y0+dy)
+			a := uint32(c.A)
+			rSum += uint32(c.R) * a
+			gSum += uint32(c.G) * a
+			bSum += uint32(c.B) * a
+			aSum += a
+		}
+	}
+	avgAlpha := aSum / uint32(subsample*subsample)
+	if avgAlpha < alphaThreshold {
 		return quadrant{}
 	}
-	return quadrant{on: true, r: c.R, g: c.G, b: c.B}
+	return quadrant{on: true, r: uint8(rSum / aSum), g: uint8(gSum / aSum), b: uint8(bSum / aSum)}
 }
 
 // renderQuadrantCell picks the Unicode quadrant-block glyph matching which

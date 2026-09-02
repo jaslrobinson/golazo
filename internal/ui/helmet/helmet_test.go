@@ -117,13 +117,64 @@ func TestRenderQuadrantCell_FourOnPicksLowestErrorSplit(t *testing.T) {
 	}
 }
 
-func TestRenderNRGBA_PacksTwoSourceRowsPerTerminalRow(t *testing.T) {
-	img := solidImage(4, 4, on(50, 60, 70))
+func TestRenderNRGBA_PacksFourSourceRowsPerTerminalRow(t *testing.T) {
+	// step = subsample*2 = 4: an 8-source-row image is exactly 2 terminal
+	// rows (each cell consumes a 4x4 block of source pixels).
+	img := solidImage(8, 8, on(50, 60, 70))
 
 	got := renderNRGBA(img)
 
 	if lines := strings.Count(got, "\n") + 1; lines != 2 {
-		t.Fatalf("got %d terminal rows for a 4-source-row image, want 2 (4 / 2)", lines)
+		t.Fatalf("got %d terminal rows for an 8-source-row image, want 2 (8 / 4)", lines)
+	}
+}
+
+func TestQuadrantAt_AveragesOpaqueBlockColor(t *testing.T) {
+	img := image.NewNRGBA(image.Rect(0, 0, 2, 2))
+	img.SetNRGBA(0, 0, color.NRGBA{R: 100, G: 100, B: 100, A: 255})
+	img.SetNRGBA(1, 0, color.NRGBA{R: 200, G: 200, B: 200, A: 255})
+	img.SetNRGBA(0, 1, color.NRGBA{R: 100, G: 100, B: 100, A: 255})
+	img.SetNRGBA(1, 1, color.NRGBA{R: 200, G: 200, B: 200, A: 255})
+
+	q := quadrantAt(img, 0, 0)
+
+	if !q.on {
+		t.Fatalf("expected fully opaque block to be on")
+	}
+	if q.r != 150 || q.g != 150 || q.b != 150 {
+		t.Fatalf("got (%d,%d,%d), want (150,150,150) average", q.r, q.g, q.b)
+	}
+}
+
+func TestQuadrantAt_BelowThresholdAverageAlphaIsOff(t *testing.T) {
+	img := image.NewNRGBA(image.Rect(0, 0, 2, 2))
+	for y := 0; y < 2; y++ {
+		for x := 0; x < 2; x++ {
+			img.SetNRGBA(x, y, color.NRGBA{R: 255, G: 0, B: 0, A: 10})
+		}
+	}
+
+	q := quadrantAt(img, 0, 0)
+
+	if q.on {
+		t.Fatalf("expected below-threshold average alpha to be off")
+	}
+}
+
+func TestQuadrantAt_TransparentPixelsDoNotDiluteOpaqueColor(t *testing.T) {
+	img := image.NewNRGBA(image.Rect(0, 0, 2, 2))
+	img.SetNRGBA(0, 0, color.NRGBA{R: 255, G: 0, B: 0, A: 255}) // fully opaque red
+	img.SetNRGBA(1, 0, color.NRGBA{R: 0, G: 0, B: 0, A: 0})     // transparent; color should not matter
+	img.SetNRGBA(0, 1, color.NRGBA{R: 0, G: 0, B: 0, A: 0})
+	img.SetNRGBA(1, 1, color.NRGBA{R: 0, G: 0, B: 0, A: 0})
+
+	q := quadrantAt(img, 0, 0)
+
+	if !q.on {
+		t.Fatalf("expected 1-of-4 opaque pixels (avg alpha ~64) to clear the threshold")
+	}
+	if q.r != 255 || q.g != 0 || q.b != 0 {
+		t.Fatalf("got (%d,%d,%d), want pure red - transparent pixels must not dilute the color", q.r, q.g, q.b)
 	}
 }
 
