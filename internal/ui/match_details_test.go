@@ -96,64 +96,51 @@ func TestRenderMatchDetails_NoAggregateSection_WhenEmpty(t *testing.T) {
 }
 
 func TestRenderMatchDetails_HelmetsRow_RendersForSeededTeam(t *testing.T) {
-	details := &api.MatchDetails{
+	// Technique-agnostic (doesn't assume which glyph vocabulary the
+	// current internal/ui/helmet renderer uses): a header with a seeded
+	// team's helmet art must have more lines than an otherwise-identical
+	// header with no seeded team.
+	seeded := &api.MatchDetails{
 		Match: api.Match{
 			Status:   api.MatchStatusNotStarted,
 			HomeTeam: api.Team{ID: 213, Name: "Penn State Nittany Lions", ShortName: "Penn St"},
 			AwayTeam: api.Team{Name: "Some Other Team", ShortName: "SOT"},
 		},
 	}
-
-	header, _ := RenderMatchDetails(MatchDetailsConfig{
-		Width:   80,
-		Height:  40,
-		Details: details,
-	})
-
-	if !strings.Contains(header, "▀") && !strings.Contains(header, "▄") {
-		t.Errorf("RenderMatchDetails header should contain helmet art for a team with seeded artwork")
-	}
-}
-
-func TestRenderMatchDetails_HelmetsRow_OmittedWhenTerminalTooNarrow(t *testing.T) {
-	details := &api.MatchDetails{
+	unseeded := &api.MatchDetails{
 		Match: api.Match{
 			Status:   api.MatchStatusNotStarted,
-			HomeTeam: api.Team{ID: 213, Name: "Penn State Nittany Lions", ShortName: "Penn St"},
-			AwayTeam: api.Team{ID: 333, Name: "Alabama Crimson Tide", ShortName: "Alabama"},
+			HomeTeam: api.Team{Name: "Some Team", ShortName: "ST"},
+			AwayTeam: api.Team{Name: "Some Other Team", ShortName: "SOT"},
 		},
 	}
 
-	// Width=30 gives contentWidth=24, narrower than the 26-column combined
-	// helmet row (two 10-column helmets + a 6-column gap) - it must be
-	// omitted entirely rather than wrapping into garbage.
-	header, _ := RenderMatchDetails(MatchDetailsConfig{
-		Width:   30,
-		Height:  40,
-		Details: details,
-	})
+	withArt, _ := RenderMatchDetails(MatchDetailsConfig{Width: 80, Height: 40, Details: seeded})
+	withoutArt, _ := RenderMatchDetails(MatchDetailsConfig{Width: 80, Height: 40, Details: unseeded})
 
-	if strings.Contains(header, "▀") || strings.Contains(header, "▄") {
-		t.Errorf("RenderMatchDetails header should omit helmet art when contentWidth is too narrow to fit it, got:\n%s", header)
+	if strings.Count(withArt, "\n") <= strings.Count(withoutArt, "\n") {
+		t.Errorf("RenderMatchDetails header with a seeded team should have more lines than one without")
 	}
 }
 
-func TestRenderMatchDetails_HelmetsRow_OmittedWhenNeitherTeamSeeded(t *testing.T) {
-	details := &api.MatchDetails{
-		Match: api.Match{
-			Status:   api.MatchStatusNotStarted,
-			HomeTeam: api.Team{Name: "Arsenal", ShortName: "ARS"},
-			AwayTeam: api.Team{Name: "Chelsea", ShortName: "CHE"},
-		},
+func TestRenderHelmetsRow_NonEmptyWhenOneTeamSeeded(t *testing.T) {
+	if got := renderHelmetsRow(213, 999999999, 80); got == "" {
+		t.Fatalf("renderHelmetsRow(213, unseeded, 80) = empty, want helmet art")
 	}
+}
 
-	header, _ := RenderMatchDetails(MatchDetailsConfig{
-		Width:   80,
-		Height:  40,
-		Details: details,
-	})
+func TestRenderHelmetsRow_EmptyWhenNeitherTeamSeeded(t *testing.T) {
+	if got := renderHelmetsRow(999999999, 999999999, 80); got != "" {
+		t.Fatalf("renderHelmetsRow(unseeded, unseeded, 80) = %q, want empty string", got)
+	}
+}
 
-	if strings.Contains(header, "▀") || strings.Contains(header, "▄") {
-		t.Errorf("RenderMatchDetails header should not contain helmet glyphs when no team has seeded art")
+func TestRenderHelmetsRow_OmittedWhenContentWidthTooNarrow(t *testing.T) {
+	// Two 9-column helmets plus a 6-column gap need exactly 24 columns.
+	if got := renderHelmetsRow(213, 333, 23); got != "" {
+		t.Fatalf("renderHelmetsRow(213, 333, 23) = %q, want empty string (1 column too narrow)", got)
+	}
+	if got := renderHelmetsRow(213, 333, 24); got == "" {
+		t.Fatalf("renderHelmetsRow(213, 333, 24) = empty, want helmet art (exact fit)")
 	}
 }
