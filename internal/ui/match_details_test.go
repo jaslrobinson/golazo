@@ -115,6 +115,29 @@ func TestRenderMatchDetails_HelmetsRow_RendersForSeededTeam(t *testing.T) {
 	}
 }
 
+func TestRenderMatchDetails_HelmetsRow_OmittedWhenTerminalTooNarrow(t *testing.T) {
+	details := &api.MatchDetails{
+		Match: api.Match{
+			Status:   api.MatchStatusNotStarted,
+			HomeTeam: api.Team{ID: 213, Name: "Penn State Nittany Lions", ShortName: "Penn St"},
+			AwayTeam: api.Team{ID: 333, Name: "Alabama Crimson Tide", ShortName: "Alabama"},
+		},
+	}
+
+	// Width=70 gives contentWidth=64, narrower than the 66-column combined
+	// helmet row (two 30-column helmets + a 6-column gap) - it must be
+	// omitted entirely rather than wrapping into garbage.
+	header, _ := RenderMatchDetails(MatchDetailsConfig{
+		Width:   70,
+		Height:  40,
+		Details: details,
+	})
+
+	if strings.Contains(header, "▀") || strings.Contains(header, "▄") {
+		t.Errorf("RenderMatchDetails header should omit helmet art when contentWidth is too narrow to fit it, got:\n%s", header)
+	}
+}
+
 func TestRenderMatchDetails_HelmetsRow_OmittedWhenNeitherTeamSeeded(t *testing.T) {
 	details := &api.MatchDetails{
 		Match: api.Match{

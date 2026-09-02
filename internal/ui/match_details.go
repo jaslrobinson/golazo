@@ -182,7 +182,11 @@ func renderStatusLine(details *api.MatchDetails, contentWidth int) string {
 }
 
 // renderHelmetsRow renders both teams' curated helmet artwork side by side,
-// centered within contentWidth. Returns "" if neither team has curated art.
+// centered within contentWidth. Returns "" if neither team has curated art,
+// or if contentWidth is too narrow to fit the combined row — lipgloss's
+// Width().Align() doesn't clip content wider than the given width, it wraps
+// mid-line, which turns the art into unreadable garbage rather than just
+// looking cramped. Omitting it entirely is the safer fallback.
 // Note: if only one team has art, the other side renders as blank space
 // rather than re-centering around the single helmet — acceptable for v1.
 func renderHelmetsRow(homeTeamID, awayTeamID, contentWidth int) string {
@@ -194,6 +198,9 @@ func renderHelmetsRow(homeTeamID, awayTeamID, contentWidth int) string {
 
 	gap := lipgloss.NewStyle().Width(6).Render("")
 	row := lipgloss.JoinHorizontal(lipgloss.Center, homeArt, gap, awayArt)
+	if lipgloss.Width(row) > contentWidth {
+		return ""
+	}
 	return lipgloss.NewStyle().Width(contentWidth).Align(lipgloss.Center).Render(row)
 }
 
