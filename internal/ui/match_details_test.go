@@ -144,3 +144,44 @@ func TestRenderHelmetsRow_OmittedWhenContentWidthTooNarrow(t *testing.T) {
 		t.Fatalf("renderHelmetsRow(213, 333, 24) = empty, want helmet art (exact fit)")
 	}
 }
+
+func TestRenderStatusLine_FinishedPrefersProviderLiveTime(t *testing.T) {
+	// ESPN's CFB mapper populates LiveTime with its own native finished
+	// text ("Final", "Final/OT", ...) even for finished matches - the
+	// generic "FT" (soccer's Full Time) fallback must not override it.
+	liveTime := "Final/OT"
+	details := &api.MatchDetails{
+		Match: api.Match{
+			Status:   api.MatchStatusFinished,
+			LiveTime: &liveTime,
+			League:   api.League{Name: "NCAAF"},
+		},
+	}
+
+	got := renderStatusLine(details, 60)
+
+	if !strings.Contains(got, "Final/OT") {
+		t.Errorf("renderStatusLine() = %q, want it to contain the provider's own %q", got, "Final/OT")
+	}
+	if strings.Contains(got, "FT") {
+		t.Errorf("renderStatusLine() = %q, should not contain the generic FT fallback when LiveTime is set", got)
+	}
+}
+
+func TestRenderStatusLine_FinishedFallsBackToFTWhenNoLiveTime(t *testing.T) {
+	// FotMob (soccer) leaves LiveTime nil once a match finishes - the
+	// generic "FT" fallback must still apply in that case.
+	details := &api.MatchDetails{
+		Match: api.Match{
+			Status:   api.MatchStatusFinished,
+			LiveTime: nil,
+			League:   api.League{Name: "Premier League"},
+		},
+	}
+
+	got := renderStatusLine(details, 60)
+
+	if !strings.Contains(got, "FT") {
+		t.Errorf("renderStatusLine() = %q, want it to contain the fallback %q when LiveTime is nil", got, "FT")
+	}
+}

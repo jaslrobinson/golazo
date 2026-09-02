@@ -169,7 +169,11 @@ func renderStatusLine(details *api.MatchDetails, contentWidth int) string {
 		}
 		statusText = lipgloss.NewStyle().Foreground(neonRed).Bold(true).Render(liveTime)
 	case api.MatchStatusFinished:
-		statusText = lipgloss.NewStyle().Foreground(neonCyan).Render(constants.StatusFinished)
+		finishedText := constants.StatusFinished
+		if details.LiveTime != nil {
+			finishedText = *details.LiveTime
+		}
+		statusText = lipgloss.NewStyle().Foreground(neonCyan).Render(finishedText)
 	default:
 		statusText = infoStyle.Render(constants.StatusNotStartedShort)
 	}
