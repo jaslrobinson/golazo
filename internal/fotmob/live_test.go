@@ -1,8 +1,11 @@
 package fotmob
 
 import (
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/jaslrobinson/golazo/internal/api"
 )
 
 // edtZone returns a fixed EDT zone for deterministic local-day tests.
@@ -143,5 +146,48 @@ func TestClassifyLeagueMatches_MissingUTCTimeSkipped(t *testing.T) {
 	live, upcoming := classifyLeagueMatches(matches, league{ID: 77}, now)
 	if len(live) != 0 || len(upcoming) != 0 {
 		t.Errorf("live=%d upcoming=%d, want both 0 (empty utcTime should be skipped)", len(live), len(upcoming))
+	}
+}
+
+// TestFormatEvent_CFBScoringPlays guards against a regression where college
+// football scoring plays (espncfb.mapScoringPlays sets Type to "touchdown",
+// "field_goal", "safety", or "score" — never "goal") fell through to
+// formatEvent's generic default case. That case renders event.Type as a bare
+// label ("field_goal") and always shows "0'" (Minute defaulted to zero before
+// mapScoringPlays started computing it), which is what the Updates panel was
+// showing live on 2026-09-04 for three concurrent in-progress games.
+func TestFormatEvent_CFBScoringPlays(t *testing.T) {
+	parser := NewLiveUpdateParser()
+	homeTeam := api.Team{ID: 1, ShortName: "EMU"}
+	awayTeam := api.Team{ID: 2, ShortName: "SJSU"}
+
+	tests := []struct {
+		eventType string
+		wantLabel string
+	}{
+		{"touchdown", "[TOUCHDOWN]"},
+		{"field_goal", "[FIELD GOAL]"},
+		{"safety", "[SAFETY]"},
+		{"score", "[SCORE]"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.eventType, func(t *testing.T) {
+			event := api.MatchEvent{
+				Minute:      21,
+				Type:        tt.eventType,
+				Team:        homeTeam,
+				Description: "N. Kim pass to H. Mack for 5 yds, for a TD",
+			}
+			got := parser.formatEvent(event, homeTeam, awayTeam)
+			if !strings.Contains(got, tt.wantLabel) {
+				t.Errorf("formatEvent(%q) = %q, want it to contain %q", tt.eventType, got, tt.wantLabel)
+			}
+			if !strings.Contains(got, "21'") {
+				t.Errorf("formatEvent(%q) = %q, want minute 21' (not 0')", tt.eventType, got)
+			}
+			if !strings.Contains(got, event.Description) {
+				t.Errorf("formatEvent(%q) = %q, want it to contain the play description", tt.eventType, got)
+			}
+		})
 	}
 }

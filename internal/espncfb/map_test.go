@@ -467,3 +467,84 @@ func TestParseESPNTime(t *testing.T) {
 		})
 	}
 }
+
+// TestMapCurrentSituation_RealShape guards against a regression where the
+// Situation dialog always showed "no data available" for live games. Root
+// cause: /summary never populates header.competitions[0].situation (what the
+// old mapSituation read) — confirmed live 2026-09-04 against three
+// concurrent in-progress games. The real down-and-distance data lives in
+// drives.current.plays[last].end instead; this fixture is a trimmed excerpt
+// of that response (SJSU at E Michigan, event 401864495, 2026-09-04).
+func TestMapCurrentSituation_RealShape(t *testing.T) {
+	drivesJSON := `{
+		"current": {
+			"description": "0 plays, 0 yards, 0:00",
+			"plays": [{
+				"text": "(09:19) #37 N.Dibert kickoff 65 yards to the SJSU00, Touchback",
+				"period": {"number": 2},
+				"clock": {"displayValue": "9:19"},
+				"start": {"down": 1, "distance": 10, "yardLine": 35, "yardsToEndzone": 65, "team": {"id": "2199"}},
+				"end": {"down": 1, "distance": 10, "yardLine": 75, "downDistanceText": "1st & 10 at SJSU 25", "shortDownDistanceText": "1st & 10", "possessionText": "SJSU 25", "team": {"id": "23"}}
+			}]
+		}
+	}`
+	var drives rawDrives
+	if err := json.Unmarshal([]byte(drivesJSON), &drives); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	home := rawCompetitor{ID: "23", TimeoutsUsed: 1}
+	away := rawCompetitor{ID: "2199", TimeoutsUsed: 0}
+
+	s := mapCurrentSituation(drives, home, away)
+	if s == nil {
+		t.Fatal("mapCurrentSituation returned nil, want a populated Situation")
+	}
+	if s.Down != 1 || s.Distance != 10 {
+		t.Errorf("Down/Distance = %d/%d, want 1/10", s.Down, s.Distance)
+	}
+	if s.DownDistanceText != "1st & 10 at SJSU 25" {
+		t.Errorf("DownDistanceText = %q", s.DownDistanceText)
+	}
+	if s.PossessionTeamID != 23 {
+		t.Errorf("PossessionTeamID = %d, want 23", s.PossessionTeamID)
+	}
+	if s.YardsToEndzone != 25 {
+		t.Errorf("YardsToEndzone = %d, want 25 (100 - yardLine 75)", s.YardsToEndzone)
+	}
+	if s.HomeTimeouts != 2 || s.AwayTimeouts != 3 {
+		t.Errorf("HomeTimeouts/AwayTimeouts = %d/%d, want 2/3", s.HomeTimeouts, s.AwayTimeouts)
+	}
+}
+
+func TestMapCurrentSituation_NilWhenNoCurrentDrive(t *testing.T) {
+	if s := mapCurrentSituation(rawDrives{}, rawCompetitor{}, rawCompetitor{}); s != nil {
+		t.Errorf("mapCurrentSituation() = %+v, want nil when there's no current drive", s)
+	}
+}
+
+func TestMapCurrentSituation_NilWhenCurrentDriveHasNoPlaysYet(t *testing.T) {
+	drives := rawDrives{Current: &rawDrive{Plays: nil}}
+	if s := mapCurrentSituation(drives, rawCompetitor{}, rawCompetitor{}); s != nil {
+		t.Errorf("mapCurrentSituation() = %+v, want nil right after a drive starts with no plays yet", s)
+	}
+}
+
+func TestElapsedMinute(t *testing.T) {
+	tests := []struct {
+		period       int
+		clockDisplay string
+		want         int
+	}{
+		{1, "15:00", 0},  // kickoff, nothing elapsed
+		{1, "0:00", 15},  // end of Q1
+		{2, "9:19", 21},  // (2-1)*15 + (15-9) = 21, matches "Q2 9:19" shown live
+		{4, "0:00", 60},  // end of regulation
+	}
+	for _, tt := range tests {
+		got := elapsedMinute(tt.period, tt.clockDisplay)
+		if got != tt.want {
+			t.Errorf("elapsedMinute(%d, %q) = %d, want %d", tt.period, tt.clockDisplay, got, tt.want)
+		}
+	}
+}

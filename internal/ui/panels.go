@@ -184,11 +184,16 @@ func renderStyledLiveUpdate(update string, contentWidth int, details *api.MatchD
 
 	var styledContent string
 	switch symbol {
-	case "●": // Goal - gradient
-		// Check for own goal marker in the update string
+	case "●": // Goal / CFB scoring play - gradient
+		// Check for the bracketed label the update string was built with —
+		// covers soccer's [GOAL]/[OWN GOAL] and CFB's [TOUCHDOWN]/[FIELD GOAL]/
+		// [SAFETY]/[SCORE] (see formatEvent in internal/fotmob/live.go).
 		label := "GOAL"
-		if strings.Contains(contentWithoutMinute, "[OWN GOAL]") {
-			label = "OWN GOAL"
+		for _, candidate := range []string{"OWN GOAL", "TOUCHDOWN", "FIELD GOAL", "SAFETY", "SCORE"} {
+			if strings.Contains(contentWithoutMinute, "["+candidate+"]") {
+				label = candidate
+				break
+			}
 		}
 		marker := fmt.Sprintf("[%s]", label)
 		playerDetails, _ := extractPlayerAndType(contentWithoutMinute, marker)

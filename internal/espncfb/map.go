@@ -126,30 +126,54 @@ func mapMatch(e rawEvent) (api.Match, bool) {
 	return m, true
 }
 
-func mapSituation(s *rawSituation, homeTeamID, awayTeamID int) *api.Situation {
-	if s == nil {
+// mapCurrentSituation builds the down-and-distance/field-position snapshot
+// from the in-progress drive's most recent play, since /summary never
+// carries a header-level "situation" object (see rawHeader). Returns nil
+// when there's no current drive or it has no plays yet (right after
+// kickoff/halftime, briefly) — the caller falls back to a LastPlay-only
+// Situation for that window.
+func mapCurrentSituation(drives rawDrives, home, away rawCompetitor) *api.Situation {
+	if drives.Current == nil || len(drives.Current.Plays) == 0 {
 		return nil
 	}
+
+	pos := drives.Current.Plays[len(drives.Current.Plays)-1].End
+	if pos.Down == 0 {
+		pos = drives.Current.Plays[len(drives.Current.Plays)-1].Start
+	}
+	if pos.Down == 0 {
+		return nil
+	}
+
+	yardsToEndzone := 100 - pos.YardLine
+	if yardsToEndzone < 0 {
+		yardsToEndzone = 0
+	}
+
 	return &api.Situation{
-		Down:             s.Down,
-		Distance:         s.Distance,
-		YardLine:         s.YardLine,
-		YardsToEndzone:   s.YardsToEndzone,
-		PossessionTeamID: toInt(s.Possession),
-		IsRedZone:        s.IsRedZone,
-		DownDistanceText: s.DownDistanceText,
-		PossessionText:   s.PossessionText,
-		HomeTimeouts:     s.HomeTimeouts,
-		AwayTimeouts:     s.AwayTimeouts,
-		LastPlay:         lastPlayText(s.LastPlay),
+		Down:             pos.Down,
+		Distance:         pos.Distance,
+		YardLine:         pos.YardLine,
+		YardsToEndzone:   yardsToEndzone,
+		PossessionTeamID: toInt(pos.Team.ID),
+		IsRedZone:        yardsToEndzone > 0 && yardsToEndzone <= 20,
+		DownDistanceText: pos.DownDistanceText,
+		PossessionText:   pos.PossessionText,
+		HomeTimeouts:     timeoutsRemaining(home.TimeoutsUsed),
+		AwayTimeouts:     timeoutsRemaining(away.TimeoutsUsed),
 	}
 }
 
-func lastPlayText(p *rawLastPlay) string {
-	if p == nil {
-		return ""
+// timeoutsRemaining converts ESPN's used-count into a remaining-count out of
+// the standard 3 per half, clamped so an unexpected overtime value (ESPN
+// resets timeouts each OT period, which this endpoint doesn't distinguish)
+// can't go negative.
+func timeoutsRemaining(used int) int {
+	remaining := 3 - used
+	if remaining < 0 {
+		return 0
 	}
-	return p.Text
+	return remaining
 }
 
 // mapStatistics zips two teams' boxscore.statistics (matched by Name) into
@@ -219,6 +243,7 @@ func mapScoringPlays(raw []rawScoringPlay) []api.MatchEvent {
 	for _, p := range raw {
 		events = append(events, api.MatchEvent{
 			ID:            toInt(p.ID),
+			Minute:        elapsedMinute(p.Period.Number, p.Clock.DisplayValue),
 			DisplayMinute: fmt.Sprintf("Q%d %s", p.Period.Number, p.Clock.DisplayValue),
 			Type:          normalizeScoringPlayType(p.Type.Abbreviation),
 			Team:          mapTeam(p.Team),
@@ -226,6 +251,24 @@ func mapScoringPlays(raw []rawScoringPlay) []api.MatchEvent {
 		})
 	}
 	return events
+}
+
+// elapsedMinute converts a quarter number and countdown clock ("9:19", time
+// remaining in a 15-minute quarter) into a single ascending minute count, so
+// scoring plays sort chronologically the same way LiveUpdateParser.ParseEvents
+// already sorts soccer's minute-based events. DisplayMinute carries the exact
+// "Q2 9:19" text for display; this value only needs to order and label
+// correctly, which is why seconds are dropped.
+func elapsedMinute(period int, clockDisplay string) int {
+	remaining := 0
+	if m, _, ok := strings.Cut(clockDisplay, ":"); ok {
+		remaining = toInt(m)
+	}
+	elapsed := (period-1)*15 + (15 - remaining)
+	if elapsed < 0 {
+		elapsed = 0
+	}
+	return elapsed
 }
 
 func normalizeScoringPlayType(abbr string) string {

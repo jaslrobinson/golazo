@@ -260,6 +260,24 @@ func (p *LiveUpdateParser) formatEvent(event api.MatchEvent, homeTeam, awayTeam 
 		// Skip added time events - not useful
 		return ""
 
+	// College football scoring plays (see espncfb.normalizeScoringPlayType).
+	// These carry no clean Player field — providers without one populate
+	// Description with the full play text instead (see api.MatchEvent) — so
+	// render that in the player-name slot, same as formatGoalMessage in
+	// internal/notify does for desktop notifications.
+	case "touchdown", "field_goal", "safety", "score":
+		label := map[string]string{
+			"touchdown":  "TOUCHDOWN",
+			"field_goal": "FIELD GOAL",
+			"safety":     "SAFETY",
+			"score":      "SCORE",
+		}[strings.ToLower(event.Type)]
+		desc := event.Description
+		if desc == "" {
+			desc = label
+		}
+		return fmt.Sprintf("%s %d' [%s] %s %s", EventPrefixGoal, event.Minute, label, desc, teamMarker)
+
 	default:
 		player := ""
 		if event.Player != nil {

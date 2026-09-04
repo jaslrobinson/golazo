@@ -166,7 +166,7 @@ func (c *Client) MatchDetails(ctx context.Context, matchID int) (*api.MatchDetai
 	details := &api.MatchDetails{
 		Match:     base,
 		Events:    mapScoringPlays(raw.ScoringPlays),
-		Situation: mapSituation(hc.Situation, base.HomeTeam.ID, base.AwayTeam.ID),
+		Situation: mapCurrentSituation(raw.Drives, home, away),
 		Leaders:   mapLeaders(raw.Leaders, home.Team.Abbreviation, away.Team.Abbreviation),
 		Momentum:  mapMomentum(raw.WinProbability),
 	}
@@ -175,22 +175,33 @@ func (c *Client) MatchDetails(ctx context.Context, matchID int) (*api.MatchDetai
 		details.Statistics = mapStatistics(homeBox, awayBox)
 	}
 
-	// Only attach a last-play fallback for LIVE games, and only when the
-	// header didn't already carry one via the UNVERIFIED header.situation
-	// mirroring. A finished or not-yet-started game must leave Situation nil
-	// — synthesizing a zero-value api.Situation{} here would render as
-	// "1st & 0, ball on the opponent's goal line" in the Situation dialog,
-	// which is actively misleading rather than merely incomplete.
+	// Only attach a last-play fallback for LIVE games. A finished or
+	// not-yet-started game must leave Situation nil — synthesizing a
+	// zero-value api.Situation{} here would render as "1st & 0, ball on the
+	// opponent's goal line" in the Situation dialog, which is actively
+	// misleading rather than merely incomplete.
 	if hc.Status.Type.State == "in" {
 		if details.Situation == nil {
 			details.Situation = &api.Situation{}
 		}
 		if details.Situation.LastPlay == "" {
-			details.Situation.LastPlay = lastCompletedPlayText(raw.Drives.Previous)
+			details.Situation.LastPlay = lastPlayText(raw.Drives)
 		}
 	}
 
 	return details, nil
+}
+
+// lastPlayText returns the most recent play's own description when the
+// current drive has one (this is what the down-and-distance in
+// mapCurrentSituation is derived from too), falling back to the last
+// completed play of the last finished drive for the brief window between
+// drives (e.g. right after a score, before the current drive has a play).
+func lastPlayText(drives rawDrives) string {
+	if drives.Current != nil && len(drives.Current.Plays) > 0 {
+		return drives.Current.Plays[len(drives.Current.Plays)-1].Text
+	}
+	return lastCompletedPlayText(drives.Previous)
 }
 
 func lastCompletedPlayText(drives []rawDrive) string {

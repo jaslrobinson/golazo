@@ -42,13 +42,14 @@ type rawVenue struct {
 }
 
 type rawCompetitor struct {
-	ID          string          `json:"id"`
-	HomeAway    string          `json:"homeAway"` // "home" | "away"
-	Winner      bool            `json:"winner"`
-	Team        rawTeam         `json:"team"`
-	Score       string          `json:"score"`
-	CuratedRank *rawCuratedRank `json:"curatedRank,omitempty"`
-	Records     []rawRecord     `json:"records,omitempty"`
+	ID           string          `json:"id"`
+	HomeAway     string          `json:"homeAway"` // "home" | "away"
+	Winner       bool            `json:"winner"`
+	Team         rawTeam         `json:"team"`
+	Score        string          `json:"score"`
+	CuratedRank  *rawCuratedRank `json:"curatedRank,omitempty"`
+	Records      []rawRecord     `json:"records,omitempty"`
+	TimeoutsUsed int             `json:"timeoutsUsed"` // /summary header competitors only; confirmed live 2026-09-04
 }
 
 type rawCuratedRank struct {
@@ -153,9 +154,11 @@ type rawPeriod struct {
 }
 
 // rawHeader carries the base game state (teams, score, status). Its
-// Competitions[0].Situation field is UNVERIFIED — confirmed present on
-// rawCompetition (scoreboard, live games only) but no live game was
-// available to confirm ESPN also mirrors it onto the summary header.
+// Competitions[0] never carries a "situation" field on /summary — confirmed
+// live 2026-09-04 against three concurrent in-progress games (the field
+// mapSituation/rawSituation was written to read, before this comment, was
+// speculative and never actually populated). Real down-and-distance data
+// lives in rawDrives.Current instead; see mapCurrentSituation.
 type rawHeader struct {
 	Competitions []rawHeaderCompetition `json:"competitions"`
 }
@@ -164,7 +167,6 @@ type rawHeaderCompetition struct {
 	Date        string          `json:"date"`
 	Competitors []rawCompetitor `json:"competitors"`
 	Status      rawStatus       `json:"status"`
-	Situation   *rawSituation   `json:"situation,omitempty"`
 }
 
 type rawBoxscore struct {
@@ -184,6 +186,13 @@ type rawStat struct {
 }
 
 type rawDrives struct {
+	// Current is the in-progress drive on a live game; nil once the game ends
+	// (or between the final whistle and the next drive starting) — confirmed
+	// live 2026-09-04. This is the actual source of down-and-distance data:
+	// unlike /scoreboard, /summary never populates header.competitions[0].situation
+	// (see rawHeaderCompetition.Situation), so mapCurrentSituation reads the
+	// last play of Current instead.
+	Current  *rawDrive  `json:"current,omitempty"`
 	Previous []rawDrive `json:"previous"`
 }
 
@@ -216,11 +225,25 @@ type rawClock struct {
 	DisplayValue string `json:"displayValue"`
 }
 
+// rawPlayPosition is a play's start or end state. The text/possession fields
+// are populated on End (and typically empty on Start) — confirmed live
+// 2026-09-04 against three concurrent in-progress games. YardsToEndzone is
+// present on Start but was absent on End in all three; derive it from
+// YardLine (0-100 from the possessing team's own goal line, per api.Situation)
+// rather than trust its presence.
 type rawPlayPosition struct {
-	Down           int `json:"down"`
-	Distance       int `json:"distance"`
-	YardLine       int `json:"yardLine"`
-	YardsToEndzone int `json:"yardsToEndzone"`
+	Down                  int            `json:"down"`
+	Distance              int            `json:"distance"`
+	YardLine              int            `json:"yardLine"`
+	YardsToEndzone        int            `json:"yardsToEndzone"`
+	DownDistanceText      string         `json:"downDistanceText"`
+	ShortDownDistanceText string         `json:"shortDownDistanceText"`
+	PossessionText        string         `json:"possessionText"`
+	Team                  rawPlayTeamRef `json:"team"`
+}
+
+type rawPlayTeamRef struct {
+	ID string `json:"id"`
 }
 
 type rawTeamLeaders struct {
