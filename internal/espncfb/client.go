@@ -159,7 +159,7 @@ func (c *Client) MatchDetails(ctx context.Context, matchID int) (*api.MatchDetai
 		HomeScore: toIntPtr(home.Score),
 		AwayScore: toIntPtr(away.Score),
 	}
-	if t, err := time.Parse(time.RFC3339, hc.Date); err == nil {
+	if t, ok := parseESPNTime(hc.Date); ok {
 		base.MatchTime = &t
 	}
 

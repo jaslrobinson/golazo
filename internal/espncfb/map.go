@@ -23,6 +23,23 @@ func toIntPtr(s string) *int {
 	return &n
 }
 
+// espnTimeLayouts covers the date formats ESPN actually sends. Games at the
+// top of the hour arrive without a seconds field (e.g. "2026-09-05T00:00Z"),
+// which time.RFC3339 rejects outright — confirmed live against both the
+// scoreboard and summary endpoints on 2026-09-04. RFC3339 stays first for any
+// response that does carry seconds.
+var espnTimeLayouts = []string{time.RFC3339, "2006-01-02T15:04Z07:00"}
+
+// parseESPNTime parses an ESPN date string, trying each known layout in turn.
+func parseESPNTime(s string) (time.Time, bool) {
+	for _, layout := range espnTimeLayouts {
+		if t, err := time.Parse(layout, s); err == nil {
+			return t, true
+		}
+	}
+	return time.Time{}, false
+}
+
 // matchDetailsLeague picks the conference for MatchDetails. ESPN's /summary
 // header competitor team object is a trimmed blob that doesn't reliably
 // carry conferenceId (confirmed live 2026-09-02, event 401856766: empty
@@ -92,7 +109,7 @@ func mapMatch(e rawEvent) (api.Match, bool) {
 		AwayScore: toIntPtr(away.Score),
 	}
 
-	if t, err := time.Parse(time.RFC3339, e.Date); err == nil {
+	if t, ok := parseESPNTime(e.Date); ok {
 		m.MatchTime = &t
 	}
 

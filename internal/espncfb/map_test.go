@@ -403,3 +403,38 @@ func TestMapMatch_ScoreboardShape(t *testing.T) {
 		t.Errorf("status wrong: %q", m.Status)
 	}
 }
+
+// TestMapMatch_DateWithoutSeconds guards against a regression where ESPN's
+// scoreboard sends dates without a seconds field (e.g. "2026-09-05T00:00Z"
+// for games at the top of the hour) — confirmed live 2026-09-04 against both
+// /scoreboard and /summary. time.RFC3339 alone rejects that string outright,
+// silently leaving MatchTime nil and the UI showing "--:--" for every
+// upcoming kickoff.
+func TestMapMatch_DateWithoutSeconds(t *testing.T) {
+	rawJSON := `{
+		"id": "401856664",
+		"date": "2026-09-05T00:00Z",
+		"competitions": [{
+			"status": {"clock": 0, "displayClock": "0:00", "period": 0, "type": {"state": "pre", "completed": false, "shortDetail": "9/4 - 8:00 PM EDT"}},
+			"competitors": [
+				{"homeAway": "home", "team": {"id": "201", "location": "Oklahoma", "abbreviation": "OU"}, "score": "0"},
+				{"homeAway": "away", "team": {"id": "2638", "location": "UTEP", "abbreviation": "UTEP"}, "score": "0"}
+			]
+		}]
+	}`
+	var e rawEvent
+	if err := json.Unmarshal([]byte(rawJSON), &e); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	m, ok := mapMatch(e)
+	if !ok {
+		t.Fatal("mapMatch returned ok=false")
+	}
+	if m.MatchTime == nil {
+		t.Fatal("MatchTime is nil for a seconds-less ESPN date")
+	}
+	want := time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC)
+	if !m.MatchTime.Equal(want) {
+		t.Errorf("MatchTime = %v, want %v", m.MatchTime, want)
+	}
+}
