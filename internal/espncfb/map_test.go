@@ -438,3 +438,32 @@ func TestMapMatch_DateWithoutSeconds(t *testing.T) {
 		t.Errorf("MatchTime = %v, want %v", m.MatchTime, want)
 	}
 }
+
+// TestParseESPNTime covers parseESPNTime directly, since both mapMatch
+// (scoreboard) and MatchDetails (summary, client.go:162) share it — a direct
+// test protects the summary call site too, without needing to stand up an
+// httptest server just to exercise date parsing.
+func TestParseESPNTime(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  time.Time
+		ok    bool
+	}{
+		{"RFC3339 with seconds", "2026-09-05T23:30:00Z", time.Date(2026, 9, 5, 23, 30, 0, 0, time.UTC), true},
+		{"seconds omitted", "2026-09-05T00:00Z", time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC), true},
+		{"garbage", "not-a-date", time.Time{}, false},
+		{"empty", "", time.Time{}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := parseESPNTime(tt.input)
+			if ok != tt.ok {
+				t.Fatalf("ok = %v, want %v", ok, tt.ok)
+			}
+			if ok && !got.Equal(tt.want) {
+				t.Errorf("parseESPNTime(%q) = %v, want %v", tt.input, got, tt.want)
+			}
+		})
+	}
+}
