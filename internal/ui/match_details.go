@@ -63,44 +63,63 @@ func RenderMatchDetails(cfg MatchDetailsConfig) (headerContent, scrollableConten
 	headerLines = append(headerLines, renderStatusLine(details, contentWidth))
 	headerLines = append(headerLines, "")
 
-	// Helmet artwork row (renders nothing when neither team has curated art)
-	if helmetsRow := renderHelmetsRow(details.HomeTeam.ID, details.AwayTeam.ID, contentWidth); helmetsRow != "" {
-		headerLines = append(headerLines, helmetsRow)
-		headerLines = append(headerLines, "")
-	}
+	// Everything below the status line, built separately so its height can
+	// be measured before deciding whether the helmet row (built next) still
+	// leaves room for it — see the height check below.
+	var restLines []string
 
 	// Teams display
 	teamsDisplay := fmt.Sprintf("%s  vs  %s",
 		neonTeamStyle.Render(homeTeam),
 		neonTeamStyle.Render(awayTeam))
-	headerLines = append(headerLines, lipgloss.NewStyle().Width(contentWidth).Align(lipgloss.Center).Render(teamsDisplay))
-	headerLines = append(headerLines, "")
+	restLines = append(restLines, lipgloss.NewStyle().Width(contentWidth).Align(lipgloss.Center).Render(teamsDisplay))
+	restLines = append(restLines, "")
 
 	// Large score
 	if details.HomeScore != nil && details.AwayScore != nil {
-		headerLines = append(headerLines, renderLargeScore(*details.HomeScore, *details.AwayScore, contentWidth))
+		restLines = append(restLines, renderLargeScore(*details.HomeScore, *details.AwayScore, contentWidth))
 	} else {
 		vsText := lipgloss.NewStyle().
 			Foreground(neonDim).
 			Width(contentWidth).
 			Align(lipgloss.Center).
 			Render("vs")
-		headerLines = append(headerLines, vsText)
+		restLines = append(restLines, vsText)
 	}
-	headerLines = append(headerLines, "")
+	restLines = append(restLines, "")
 
 	// Aggregate score (two-legged knockout ties)
 	if details.AggregateScore != "" {
-		headerLines = append(headerLines, renderAggregateSection(details, contentWidth)...)
+		restLines = append(restLines, renderAggregateSection(details, contentWidth)...)
 	}
 
 	// Match context (detailed info)
-	headerLines = append(headerLines, renderMatchContext(details, contentWidth)...)
+	restLines = append(restLines, renderMatchContext(details, contentWidth)...)
 
 	// Penalties (prominent section)
 	if details.Penalties != nil && details.Penalties.Home != nil && details.Penalties.Away != nil {
-		headerLines = append(headerLines, renderPenaltiesSection(details, contentWidth)...)
+		restLines = append(restLines, renderPenaltiesSection(details, contentWidth)...)
 	}
+
+	// Helmet artwork row (renders nothing when neither team has curated art)
+	// — but only if there's still enough vertical room left over for the
+	// live Updates feed beneath it. Confirmed live 2026-09-04: on a ~24-row
+	// terminal the ~7-line helmet block alone consumed all remaining
+	// height, leaving Updates with no visible plays and no way to reach
+	// them — this panel has no scrollable viewport (unlike the Stats
+	// view's statsDetailsViewport), so anything pushed past the bottom
+	// edge is simply gone, not scrolled-to. Mirrors the existing
+	// width-based omission in renderHelmetsRow for the same reason.
+	if helmetsRow := renderHelmetsRow(details.HomeTeam.ID, details.AwayTeam.ID, contentWidth); helmetsRow != "" {
+		const minReserveForUpdates = 4 // "Updates" header + divider + at least 2 lines of content
+		helmetBlock := lipgloss.Height(helmetsRow) + 1 // +1 for the blank line after it
+		usedSoFar := lipgloss.Height(strings.Join(headerLines, "\n")) + lipgloss.Height(strings.Join(restLines, "\n"))
+		if cfg.Height-usedSoFar-minReserveForUpdates >= helmetBlock {
+			headerLines = append(headerLines, helmetsRow, "")
+		}
+	}
+
+	headerLines = append(headerLines, restLines...)
 
 	// For live matches, show live updates instead of event details
 	if details.Status == api.MatchStatusLive || details.Status == api.MatchStatusNotStarted {

@@ -123,6 +123,35 @@ func TestRenderMatchDetails_HelmetsRow_RendersForSeededTeam(t *testing.T) {
 	}
 }
 
+// TestRenderMatchDetails_HelmetsRow_OmittedWhenHeightTooShort guards against
+// a regression where the live Updates feed showed its "Updates" header (or
+// nothing at all) with no play lines beneath it, and no way to scroll to
+// them — confirmed live 2026-09-04 on a ~24-row terminal. Root cause: the
+// ~7-line helmet block was always included regardless of available height,
+// pushing the live-only scrollable content (this panel has no viewport,
+// unlike the Stats view) past the bottom edge where it's simply clipped,
+// not scrolled-to. Mirrors the existing width-based omission in
+// renderHelmetsRow, but keyed on cfg.Height instead of content width.
+func TestRenderMatchDetails_HelmetsRow_OmittedWhenHeightTooShort(t *testing.T) {
+	home, away := 7, 7
+	details := &api.MatchDetails{
+		Match: api.Match{
+			Status:   api.MatchStatusLive,
+			HomeTeam: api.Team{ID: 213, Name: "Penn State Nittany Lions", ShortName: "Penn St"},
+			AwayTeam: api.Team{Name: "Some Other Team", ShortName: "SOT"},
+		},
+	}
+	details.HomeScore = &home
+	details.AwayScore = &away
+
+	tall, _ := RenderMatchDetails(MatchDetailsConfig{Width: 80, Height: 45, Details: details})
+	short, _ := RenderMatchDetails(MatchDetailsConfig{Width: 80, Height: 12, Details: details})
+
+	if strings.Count(tall, "\n") <= strings.Count(short, "\n") {
+		t.Fatalf("expected the tall-terminal header to have more lines than the short one (helmet omitted when short)")
+	}
+}
+
 func TestRenderHelmetsRow_NonEmptyWhenOneTeamSeeded(t *testing.T) {
 	if got := renderHelmetsRow(213, 999999999, 80); got == "" {
 		t.Fatalf("renderHelmetsRow(213, unseeded, 80) = empty, want helmet art")
