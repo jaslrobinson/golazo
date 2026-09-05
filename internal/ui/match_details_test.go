@@ -1,9 +1,11 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/jaslrobinson/golazo/internal/api"
 )
 
@@ -149,6 +151,43 @@ func TestRenderMatchDetails_HelmetsRow_OmittedWhenHeightTooShort(t *testing.T) {
 
 	if strings.Count(tall, "\n") <= strings.Count(short, "\n") {
 		t.Fatalf("expected the tall-terminal header to have more lines than the short one (helmet omitted when short)")
+	}
+}
+
+// TestRenderMatchDetailsPanel_ScrollOffset_RevealsLaterContent guards the
+// "Tab to focus, then scroll" feature added after users found the live
+// Updates feed had no way to reach content clipped below a short terminal's
+// bottom edge. With rightPanelFocused and a non-zero scrollOffset, content
+// further down the Updates feed must become visible that offset 0 doesn't
+// show; with rightPanelFocused=false, scrollOffset must have no effect
+// (unfocused always renders from the top, matching pre-scroll behavior).
+func TestRenderMatchDetailsPanel_ScrollOffset_RevealsLaterContent(t *testing.T) {
+	var updates []string
+	for i := 0; i < 30; i++ {
+		updates = append(updates, fmt.Sprintf("· update line %d [H]", i))
+	}
+	details := &api.MatchDetails{
+		Match: api.Match{
+			Status:   api.MatchStatusLive,
+			HomeTeam: api.Team{Name: "Home Team", ShortName: "HOME"},
+			AwayTeam: api.Team{Name: "Away Team", ShortName: "AWAY"},
+		},
+	}
+	sp := spinner.New()
+
+	atTop := renderMatchDetailsPanelWithPolling(80, 20, details, updates, sp, false, nil, false, nil, true, 0)
+	scrolled := renderMatchDetailsPanelWithPolling(80, 20, details, updates, sp, false, nil, false, nil, true, 20)
+
+	if strings.Contains(atTop, "update line 25") {
+		t.Errorf("offset 0 should not yet show a line this far down the feed")
+	}
+	if !strings.Contains(scrolled, "update line 25") {
+		t.Errorf("offset 20 should reveal later content that offset 0 didn't show")
+	}
+
+	unfocusedAtOffset := renderMatchDetailsPanelWithPolling(80, 20, details, updates, sp, false, nil, false, nil, false, 20)
+	if strings.Contains(unfocusedAtOffset, "update line 25") {
+		t.Errorf("unfocused panel should ignore scrollOffset and render from the top")
 	}
 }
 

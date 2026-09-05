@@ -453,6 +453,44 @@ func (m model) handleLiveMatchesSelection(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if msg.String() == "n" {
 			return m, fetchRankings(m.client)
 		}
+		if msg.String() == "tab" {
+			if m.matchDetails != nil {
+				m.liveRightPanelFocused = !m.liveRightPanelFocused
+				m.liveScrollOffset = 0
+			}
+			return m, nil
+		}
+	}
+
+	// While the right panel is focused, up/down/j/k scroll the Updates feed
+	// instead of moving the left list's selection (mirrors statsScrollOffset
+	// in handleStatsSelection).
+	if m.liveRightPanelFocused && m.matchDetails != nil {
+		switch msg.String() {
+		case "up", "k":
+			if m.liveScrollOffset > 0 {
+				m.liveScrollOffset--
+			}
+			return m, nil
+		case "down", "j":
+			scrollableLines := m.getLiveScrollableContentLength()
+			availableHeight := m.height - 10
+			if availableHeight < 10 {
+				availableHeight = 10
+			}
+			scrollableHeight := availableHeight - m.getLiveHeaderContentHeight()
+			if scrollableHeight < 3 {
+				scrollableHeight = 3
+			}
+			maxOffset := scrollableLines - scrollableHeight
+			if maxOffset < 0 {
+				maxOffset = 0
+			}
+			if m.liveScrollOffset < maxOffset {
+				m.liveScrollOffset++
+			}
+			return m, nil
+		}
 	}
 
 	// Capture selected item BEFORE Update (critical for filter mode - selection changes after filter clears)

@@ -189,7 +189,7 @@ func renderDateRangeSelector(width int, selected int) string {
 }
 
 // RenderMultiPanelViewWithList renders the live matches view with list component.
-func RenderMultiPanelViewWithList(width, height int, listModel list.Model, details *api.MatchDetails, liveUpdates []string, sp spinner.Model, loading bool, randomSpinner *RandomCharSpinner, viewLoading bool, leaguesLoaded int, totalLeagues int, pollingSpinner *RandomCharSpinner, isPolling bool, upcomingMatches []MatchDisplay, goalLinks GoalLinksMap, bannerType constants.StatusBannerType, lastError string) string {
+func RenderMultiPanelViewWithList(width, height int, listModel list.Model, details *api.MatchDetails, liveUpdates []string, sp spinner.Model, loading bool, randomSpinner *RandomCharSpinner, viewLoading bool, leaguesLoaded int, totalLeagues int, pollingSpinner *RandomCharSpinner, isPolling bool, upcomingMatches []MatchDisplay, goalLinks GoalLinksMap, bannerType constants.StatusBannerType, lastError string, rightPanelFocused bool, scrollOffset int) string {
 	if width <= 0 {
 		width = 80
 	}
@@ -229,11 +229,15 @@ func RenderMultiPanelViewWithList(width, height int, listModel list.Model, detai
 		leftWidth = width - rightWidth - 1
 	}
 
-	helpBar := neonDimStyle.Width(width).Align(lipgloss.Center).Render(constants.HelpMatchesView)
+	helpText := constants.HelpMatchesViewUnfocused
+	if rightPanelFocused {
+		helpText = constants.HelpMatchesViewFocused
+	}
+	helpBar := neonDimStyle.Width(width).Align(lipgloss.Center).Render(helpText)
 	panelHeight := availableHeight - 3
 
 	leftPanel := RenderLiveMatchesListPanel(leftWidth, panelHeight, listModel, upcomingMatches)
-	rightPanel := renderMatchDetailsPanelWithPolling(rightWidth, panelHeight, details, liveUpdates, sp, loading, pollingSpinner, isPolling, goalLinks)
+	rightPanel := renderMatchDetailsPanelWithPolling(rightWidth, panelHeight, details, liveUpdates, sp, loading, pollingSpinner, isPolling, goalLinks, rightPanelFocused, scrollOffset)
 
 	separatorStyle := neonSeparatorStyle.Height(panelHeight)
 	separator := separatorStyle.Render("┃")

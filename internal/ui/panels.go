@@ -73,13 +73,19 @@ func renderCenterAlignedEvent(minuteStr string, eventContent string, isHomeTeam 
 }
 
 // renderMatchDetailsPanelWithPolling renders the right panel with polling spinner support.
-func renderMatchDetailsPanelWithPolling(width, height int, details *api.MatchDetails, liveUpdates []string, sp spinner.Model, loading bool, pollingSpinner *RandomCharSpinner, isPolling bool, goalLinks GoalLinksMap) string {
-	return renderMatchDetailsPanelFull(width, height, details, liveUpdates, sp, loading, true, pollingSpinner, isPolling, goalLinks)
+func renderMatchDetailsPanelWithPolling(width, height int, details *api.MatchDetails, liveUpdates []string, sp spinner.Model, loading bool, pollingSpinner *RandomCharSpinner, isPolling bool, goalLinks GoalLinksMap, rightPanelFocused bool, scrollOffset int) string {
+	return renderMatchDetailsPanelFull(width, height, details, liveUpdates, sp, loading, true, pollingSpinner, isPolling, goalLinks, rightPanelFocused, scrollOffset)
 }
 
 // renderMatchDetailsPanelFull renders the right panel with match details using unified rendering.
-func renderMatchDetailsPanelFull(width, height int, details *api.MatchDetails, liveUpdates []string, sp spinner.Model, loading bool, showTitle bool, pollingSpinner *RandomCharSpinner, isPolling bool, goalLinks GoalLinksMap) string {
+// When rightPanelFocused, the Updates feed is windowed to scrollOffset (set via Tab + up/down/j/k
+// in the live view — see handleLiveMatchesSelection) instead of being clipped by MaxHeight with no
+// way to reach what's cut off, mirroring the Stats view's statsScrollOffset mechanism.
+func renderMatchDetailsPanelFull(width, height int, details *api.MatchDetails, liveUpdates []string, sp spinner.Model, loading bool, showTitle bool, pollingSpinner *RandomCharSpinner, isPolling bool, goalLinks GoalLinksMap, rightPanelFocused bool, scrollOffset int) string {
 	detailsPanelStyle := lipgloss.NewStyle().Padding(0, 1)
+	if rightPanelFocused {
+		detailsPanelStyle = detailsPanelStyle.BorderTop(true).BorderBottom(true).BorderForeground(neonCyan)
+	}
 
 	if details == nil {
 		emptyMessage := lipgloss.NewStyle().
@@ -119,12 +125,42 @@ func renderMatchDetailsPanelFull(width, height int, details *api.MatchDetails, l
 
 	headerContent, scrollableContent := RenderMatchDetails(cfg)
 
-	var panelContent string
+	var title string
 	if showTitle {
-		title := design.RenderHeader(constants.PanelMinuteByMinute, width-6)
-		panelContent = lipgloss.JoinVertical(lipgloss.Left, title, headerContent, scrollableContent)
+		title = design.RenderHeader(constants.PanelMinuteByMinute, width-6)
+	}
+
+	// Window the scrollable Updates feed to the available height, same
+	// technique as RenderStatsViewWithList: manual line-slicing rather than
+	// letting the outer MaxHeight silently clip content with no way to
+	// reach it.
+	titleHeight := 0
+	if title != "" {
+		titleHeight = strings.Count(title, "\n") + 1
+	}
+	headerHeight := strings.Count(headerContent, "\n") + 1
+	availableForScroll := max(height-titleHeight-headerHeight, minScrollableArea)
+
+	scrollableLines := strings.Split(scrollableContent, "\n")
+	visibleLines := scrollableLines
+	if rightPanelFocused && len(scrollableLines) > availableForScroll {
+		start := scrollOffset
+		end := min(start+availableForScroll, len(scrollableLines))
+		if start < len(scrollableLines) && start >= 0 {
+			visibleLines = scrollableLines[start:end]
+		} else if start >= len(scrollableLines) {
+			visibleLines = []string{}
+		}
+	} else if len(scrollableLines) > availableForScroll {
+		visibleLines = scrollableLines[:availableForScroll]
+	}
+	visibleContent := strings.Join(visibleLines, "\n")
+
+	var panelContent string
+	if title != "" {
+		panelContent = lipgloss.JoinVertical(lipgloss.Left, title, headerContent, visibleContent)
 	} else {
-		panelContent = lipgloss.JoinVertical(lipgloss.Left, headerContent, scrollableContent)
+		panelContent = lipgloss.JoinVertical(lipgloss.Left, headerContent, visibleContent)
 	}
 
 	return detailsPanelStyle.

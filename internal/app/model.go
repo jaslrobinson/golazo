@@ -121,6 +121,8 @@ type model struct {
 	statsDetailsViewport   viewport.Model // Scrollable viewport for match details in stats view
 	statsRightPanelFocused bool           // Whether right panel is focused for scrolling
 	statsScrollOffset      int            // Manual scroll offset for right panel content
+	liveRightPanelFocused  bool           // Whether the live view's right panel is focused for scrolling
+	liveScrollOffset       int            // Manual scroll offset for the live view's right panel content
 
 	// Loading states
 	loading          bool
@@ -338,6 +340,8 @@ func New(useMockData bool, debugMode bool, isDevBuild bool, newVersionAvailable 
 		statsDetailsViewport:   statsDetailsViewport,
 		statsRightPanelFocused: false, // Start with left panel focused
 		statsScrollOffset:      0,     // Start at top
+		liveRightPanelFocused:  false, // Start with left panel focused
+		liveScrollOffset:       0,     // Start at top
 		statsDateRange:         1,
 		pendingSelection:       -1,                    // No pending selection
 		dialogOverlay:          ui.NewDialogOverlay(), // Initialize dialog overlay
@@ -462,6 +466,36 @@ func (m model) getHeaderContentHeight() int {
 		height++
 	}
 
+	return height
+}
+
+// getLiveScrollableContentLength returns the approximate number of lines in
+// the live view's scrollable Updates feed. m.liveUpdates already carries one
+// formatted string per event (mirrors getScrollableContentLength's per-item
+// estimate for the Stats view).
+func (m model) getLiveScrollableContentLength() int {
+	return len(m.liveUpdates)
+}
+
+// getLiveHeaderContentHeight returns the approximate height of everything
+// above the Updates feed in the live view's right panel: title, status line,
+// helmet art (when shown — see renderHelmetsRow's height-based omission),
+// teams, big score, and match context (mirrors getHeaderContentHeight's
+// estimate for the Stats view, which has no helmet row).
+func (m model) getLiveHeaderContentHeight() int {
+	if m.matchDetails == nil {
+		return 1
+	}
+	height := 12 // title, status, teams, score block, blanks, "Updates" header + divider
+	if m.matchDetails.League.Name != "" {
+		height++
+	}
+	if m.matchDetails.Venue != "" {
+		height++
+	}
+	if m.matchDetails.MatchTime != nil {
+		height++
+	}
 	return height
 }
 

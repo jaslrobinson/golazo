@@ -536,10 +536,10 @@ func TestElapsedMinute(t *testing.T) {
 		clockDisplay string
 		want         int
 	}{
-		{1, "15:00", 0},  // kickoff, nothing elapsed
-		{1, "0:00", 15},  // end of Q1
-		{2, "9:19", 21},  // (2-1)*15 + (15-9) = 21, matches "Q2 9:19" shown live
-		{4, "0:00", 60},  // end of regulation
+		{1, "15:00", 0}, // kickoff, nothing elapsed
+		{1, "0:00", 15}, // end of Q1
+		{2, "9:19", 21}, // (2-1)*15 + (15-9) = 21, matches "Q2 9:19" shown live
+		{4, "0:00", 60}, // end of regulation
 	}
 	for _, tt := range tests {
 		got := elapsedMinute(tt.period, tt.clockDisplay)

@@ -43,6 +43,8 @@ func (m model) View() string {
 			m.buildGoalLinksMap(),
 			m.getStatusBannerType(),
 			m.lastError,
+			m.liveRightPanelFocused,
+			m.liveScrollOffset,
 		)
 
 	case viewStats:

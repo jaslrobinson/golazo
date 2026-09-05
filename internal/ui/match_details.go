@@ -111,7 +111,7 @@ func RenderMatchDetails(cfg MatchDetailsConfig) (headerContent, scrollableConten
 	// edge is simply gone, not scrolled-to. Mirrors the existing
 	// width-based omission in renderHelmetsRow for the same reason.
 	if helmetsRow := renderHelmetsRow(details.HomeTeam.ID, details.AwayTeam.ID, contentWidth); helmetsRow != "" {
-		const minReserveForUpdates = 4 // "Updates" header + divider + at least 2 lines of content
+		const minReserveForUpdates = 4                 // "Updates" header + divider + at least 2 lines of content
 		helmetBlock := lipgloss.Height(helmetsRow) + 1 // +1 for the blank line after it
 		usedSoFar := lipgloss.Height(strings.Join(headerLines, "\n")) + lipgloss.Height(strings.Join(restLines, "\n"))
 		if cfg.Height-usedSoFar-minReserveForUpdates >= helmetBlock {
